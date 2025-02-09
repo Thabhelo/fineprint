@@ -15,7 +15,7 @@ FinePrint is a **proprietary AI-powered contract analysis and consumer protectio
 ---
 ## **🛠️ Tech Stack**
 ### **Frontend**
-- React.js (Web)
+- React.js  & Typescript (Web)
 - React Native (Mobile)
 - Tailwind CSS (Styling)
 
