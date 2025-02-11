@@ -35,8 +35,8 @@ closeButton.style.alignItems = 'center';
 closeButton.style.justifyContent = 'center';
 closeButton.style.cursor = 'pointer';
 closeButton.style.fontSize = '14px';
-closedButton.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
-closedButton.style.zIndex = '10000'; // Ensure it's above the FAB
+closeButton.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
+closeButton.style.zIndex = '10000'; // Ensure it's above the FAB
 
 // Close FAB when the "X" is clicked
 closeButton.addEventListener('click', () => {
