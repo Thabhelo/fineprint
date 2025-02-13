@@ -3,8 +3,16 @@
   "name": "FinePrint - Contract Analyzer",
   "version": "1.0",
   "description": "AI-powered contract analysis and consumer protection",
-  "permissions": ["activeTab", "storage", "scripting"],
-  "host_permissions": ["https://*/*", "http://*/*"],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -17,59 +25,69 @@
     }
   },
   "content_scripts": [
-  {
-    "matches": [
-      "*://*/terms*",
-      "*://*/tos*",
-      "*://*/privacy*",
-      "*://*/policy*",
-      "*://*/policies*",
-      "*://*/agreement*",
-      "*://*/eula*",
-      "*://*/disclaimer*",
-      "*://*/legal*",
-      "*://*/refund*",
-      "*://*/return*",
-      "*://*/cancellation*",
-      "*://*/billing*",
-      "*://*/subscription*",
-      "*://*/insurance*",
-      "*://*/loan*",
-      "*://*/mortgage*",
-      "*://*/finance*",
-      "*://*/debt*",
-      "*://*/investment*",
-      "*://*/offer*",
-      "*://*/rewards*",
-      "*://*/bonus*", 
-      "*://*/customer*",
-      "*://*/banking*",
-      "*://*/credit*",
-      "*://*/paylater*",
-      "*://*/installment*",
-      "*://*/escrow*",
-      "*://*/checkout*",
-      "*://*/payment*",
-      "*://*/pay*",
-      "*://*/fineprint*",
-      "*://*/dispute*",
-      "*://*/arbitration*",
-      "*://*/employment*",
-      "*://*/contract*",
-      "*://*/hiring*",
-      "*://*/freelance*",
-      "*://*/gig*",
-      "*://*/workterms*",
-      "*://*/airline*",
-      "*://*/travel*",
-      "*://*/passengerrights*"
-    ],
-    "js": ["content.js"],
-    "run_at": "document_end"
-  }
-],
-  "web_accessible_resources": [{
-    "resources": ["assets/*", "styles/*"],
-    "matches": ["https://*/*", "http://*/*"]
-  }]
+    {
+      "matches": [
+        "*://*/terms*",
+        "*://*/tos*",
+        "*://*/privacy*",
+        "*://*/policy*",
+        "*://*/policies*",
+        "*://*/agreement*",
+        "*://*/eula*",
+        "*://*/disclaimer*",
+        "*://*/legal*",
+        "*://*/refund*",
+        "*://*/return*",
+        "*://*/cancellation*",
+        "*://*/billing*",
+        "*://*/subscription*",
+        "*://*/insurance*",
+        "*://*/loan*",
+        "*://*/mortgage*",
+        "*://*/finance*",
+        "*://*/debt*",
+        "*://*/investment*",
+        "*://*/offer*",
+        "*://*/rewards*",
+        "*://*/bonus*",
+        "*://*/customer*",
+        "*://*/banking*",
+        "*://*/credit*",
+        "*://*/paylater*",
+        "*://*/installment*",
+        "*://*/escrow*",
+        "*://*/checkout*",
+        "*://*/payment*",
+        "*://*/pay*",
+        "*://*/fineprint*",
+        "*://*/dispute*",
+        "*://*/arbitration*",
+        "*://*/employment*",
+        "*://*/contract*",
+        "*://*/hiring*",
+        "*://*/freelance*",
+        "*://*/gig*",
+        "*://*/workterms*",
+        "*://*/airline*",
+        "*://*/travel*",
+        "*://*/passengerrights*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "popup.html",
+        "assets/*",
+        "styles/*",
+        "content.js"
+      ],
+      "matches": [
+        "https://*/*",
+        "http://*/*"
+      ]
+    }
+  ]
 }
