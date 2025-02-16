@@ -12,9 +12,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   switch (request.action) {
     case 'OPEN_POPUP':
       openPopup();
+      sendResponse({ status: 'Popup opened' });
       break;
-    // Add more cases as needed
+      
+    case 'INJECT_SCRIPT':
+      if (sender.tab) {
+        injectContentScript(sender.tab);
+        sendResponse({ status: 'Script injected' });
+      } else {
+        sendResponse({ status: 'No tab context found' });
+      }
+      break;
+      
+    default:
+      console.warn('Unhandled message action:', request.action);
+      sendResponse({ status: 'Unknown action' });
   }
+  return true; // Required for async sendResponse calls
 });
 
 /**
@@ -37,23 +51,38 @@ async function injectContentScript(tab) {
       target: { tabId: tab.id },
       files: [CONTENT_SCRIPT_PATH]
     });
+    console.log('Content script injected successfully');
   } catch (error) {
     console.error('Failed to inject content script:', error);
   }
 }
 
-// Extension installation handler
+/**
+ * Handles extension installation events
+ */
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === 'install') {
     console.log('FinePrint extension installed successfully');
-    // Add any installation-specific logic here
+    // Perform any first-time setup actions
   }
 });
 
-// Extension icon click handler
-chrome.action.onClicked.addListener((tab) => {
-  // Only inject if we're on a permitted page
+/**
+ * Handles the extension icon click event
+ */
+chrome.action.onClicked.addListener(async (tab) => {
   if (tab.url.startsWith('http')) {
+    await injectContentScript(tab);
+  } else {
+    console.warn('Cannot inject script into this page:', tab.url);
+  }
+});
+
+/**
+ * Automatically inject content script when a new tab is updated
+ */
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url && tab.url.startsWith('http')) {
     injectContentScript(tab);
   }
 });
