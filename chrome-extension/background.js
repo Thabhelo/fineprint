@@ -1,6 +1,6 @@
 // Constants
 const CONTENT_SCRIPT_PATH = 'content.js';
-const POPUP_PATH = 'popup.html';
+const POPUP_PATH = '../index.html';
 
 /**
  * Handles all incoming messages from content scripts and popup
