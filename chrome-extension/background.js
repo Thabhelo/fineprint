@@ -32,7 +32,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 /**
- * Opens the extension popup in a new tab
+ * Opens the extension popup in a new tabb
  */
 function openPopup() {
   chrome.tabs.create({ 
