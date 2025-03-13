@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { Newspaper, Download, ExternalLink } from 'lucide-react';
 
@@ -135,12 +134,12 @@ export default function Press() {
           </p>
           <div className="mt-4">
             <p className="font-medium text-gray-900">Thabhelo Duve</p>
-            <p className="text-gray-600">Head of Communications</p>
+            <p className="text-gray-600">Founder & CEO</p>
             <a
               href="mailto:thabhelo.duve+portfolio@talladega.edu"
               className="text-indigo-600 hover:text-indigo-500"
             >
-              thabhelo.duve+portfolio@talladega.edu
+              thabheloduve@gmail.com
             </a>
           </div>
         </motion.div>
