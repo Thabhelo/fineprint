@@ -1,4 +1,4 @@
-# **FinePrint AI - Powered Contract Transparency & Consumer Protection**
+# **FinePrint AI - Contract Transparency & Consumer Protection**
 
 ## **🚀 Overview**
 FinePrint is a **proprietary AI-powered contract analysis and consumer protection platform** designed to help users detect **hidden fees, predatory clauses, and legal risks** in contracts, subscriptions, and agreements. It ensures **financial transparency, compliance, and consumer rights enforcement** with real-time alerts and automated chargeback assistance.
