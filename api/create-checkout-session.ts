@@ -54,8 +54,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     
     // Build the success and cancel URLs
-    const successUrl = `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${process.env.FRONTEND_URL}/payment-failed`;
+    const successUrl = `${process.env.VITE_FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${process.env.VITE_FRONTEND_URL}/payment-failed`;
 
     // Validate the URLs
     try {
