@@ -1,3 +1,5 @@
+import emailjs from '@emailjs/browser';
+
 interface ContactEmailProps {
   name: string;
   email: string;
@@ -22,7 +24,7 @@ export async function sendContactEmail(data: ContactEmailProps) {
         from_name: data.name,
         to_name: "Thabhelo",
         from_email: data.email,
-        to_email: "thabhelo.duve+portfolio@talladega.edu",
+        to_email: "thabhelo.duve+fineprint@gmail.com",
         message: data.message,
       },
       '_JDd2_-oFPAXuoAI5'

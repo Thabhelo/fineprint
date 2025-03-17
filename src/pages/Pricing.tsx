@@ -81,7 +81,14 @@ export default function Pricing() {
     // Otherwise, handle Premium checkout via Stripe
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/create-checkout-session', { // Ensure the URL matches your server's address and port
+      // Check if the environment variable is defined, otherwise use a fallback
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+      console.log('Using API URL:', apiUrl); // Debug the value
+      // Ensure the API URL doesn't end with a slash and append the path
+      const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+      console.log('Requesting URL:', `${baseUrl}/create-checkout-session`); // Debug the full URL
+
+      const response = await fetch(`${baseUrl}/create-checkout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: subscriptionPeriod, tier: tierName }),

@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://api.fineprint.ai';
+const VITE_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 export async function analyzeContractWithAI(content: string) {
   try {
-    const response = await axios.post(`${API_URL}/analyze`, { content });
+    const response = await axios.post(`${VITE_API_URL}/analyze`, { content });
     return response.data;
   } catch (error) {
     console.error('Error analyzing contract with AI:', error);
@@ -12,9 +12,22 @@ export async function analyzeContractWithAI(content: string) {
   }
 }
 
-export async function exportToPDF(contractId: string) {
+export async function createCheckoutSession(productId: string) {
   try {
-    const response = await axios.get(`${API_URL}/export/${contractId}`, {
+    const response = await axios.post(`${VITE_API_URL}/create-checkout-session`, { 
+      productId,
+      apiKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    throw error;
+  }
+}
+
+export async function exportPDF(contractId: string) {
+  try {
+    const response = await axios.get(`${VITE_API_URL}/export/${contractId}`, {
       responseType: 'blob'
     });
     return response.data;

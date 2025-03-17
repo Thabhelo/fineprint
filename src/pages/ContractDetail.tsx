@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FileText, AlertTriangle, Download, Share2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { exportToPDF } from '../lib/api';
+import { exportPDF } from '../lib/api';
 import { toast } from 'sonner';
 
 export default function ContractDetail() {
@@ -41,7 +41,7 @@ export default function ContractDetail() {
 
   async function handleExport() {
     try {
-      const pdfBlob = await exportToPDF(id!);
+      const pdfBlob = await exportPDF(id!);
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;

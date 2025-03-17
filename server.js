@@ -13,7 +13,7 @@ app.use(bodyParser.json());
 
 // Enable CORS for all routes
 app.use(cors({
-  origin: 'http://localhost:5173' // Allow requests from this origin
+  origin: process.env.VITE_FRONTEND_URL || 'http://localhost:5173'
 }));
 
 app.post('/api/create-checkout-session', async (req, res) => {
@@ -36,8 +36,8 @@ app.post('/api/create-checkout-session', async (req, res) => {
         quantity: 1,
       }],
       mode: 'subscription',
-      success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/payment-failed`,
+      success_url: `${process.env.VITE_FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.VITE_FRONTEND_URL}/payment-failed`,
     });
     res.status(200).json({ sessionId: session.id });
   } catch (error) {

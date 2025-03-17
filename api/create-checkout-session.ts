@@ -6,25 +6,67 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-02-24.acacia' });
 
+// Create a helper to set CORS headers:
+const setCorsHeaders = (res: VercelResponse) => {
+  const allowedOrigin = process.env.CORS_ALLOWED_ORIGIN || 'http://localhost:5173';
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Set CORS headers for every request
+  setCorsHeaders(res);
+
+  // Handle preflight request
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method Not Allowed' });
     return;
   }
+  
+  if (!process.env.VITE_FRONTEND_URL) {
+    res.status(500).json({ error: 'Frontend URL is not defined' });
+    return;
+  }
+  
+  if (!process.env.STRIPE_YEARLY_PRICE_ID && !process.env.STRIPE_MONTHLY_PRICE_ID) {
+    throw new Error('No price IDs are defined');
+  }
+
   const { plan } = req.body;
   if (plan !== 'yearly' && plan !== 'monthly') {
     res.status(400).json({ error: 'Invalid plan type' });
     return;
   }
+
   try {
-    const priceId = plan === 'yearly' ? process.env.STRIPE_YEARLY_PRICE_ID : process.env.STRIPE_MONTHLY_PRICE_ID; 
+    const priceId = plan === 'yearly'
+      ? process.env.STRIPE_YEARLY_PRICE_ID
+      : process.env.STRIPE_MONTHLY_PRICE_ID;
     if (!priceId) {
       res.status(400).json({ error: 'Price ID is not defined' });
       return;
     }
-    if (!process.env.VITE_FRONTEND_URL) { 
-      throw new Error('Frontend URL is not defined');
+    
+    // Build the success and cancel URLs
+    const successUrl = `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${process.env.FRONTEND_URL}/payment-failed`;
+
+    // Validate the URLs
+    try {
+      new URL(successUrl);
+      new URL(cancelUrl);
+    } catch (error) {
+      res.status(400).json({ error: 'Invalid URL' });
+      return;
     }
+
+    // Create the Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
@@ -32,24 +74,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         quantity: 1,
       }],
       mode: 'subscription',
-      success_url: `${process.env.VITE_FRONTEND_URL}/payment-success?session_id={{CHECKOUT_SESSION_ID}}`,
-      cancel_url: `${process.env.VITE_FRONTEND_URL}/payment-failed`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
     });
-    res.status(200).json({ sessionId: session.id });
-  } catch (error) {
-    // Log the error for debugging purposes
-    console.error('Error creating checkout session:', error);
 
-    // Handle specific Stripe errors
+    res.status(200).json({ sessionId: session.id });
+  } catch (error: any) {
+    console.error('Error creating checkout session:', error);
     if (error.type === 'StripeCardError') {
-      // Card errors are typically due to invalid card details
       res.status(500).json({ error: 'Internal Server Error', details: error.message || 'No additional details' });
     } else if (error.type === 'StripeInvalidRequestError') {
-      // Invalid request errors occur when the request has invalid parameters
-      res.status(400).json({ error: 'Invalid request', details: error.message });
+      res.status(400).json({ 
+        error: 'Invalid request',
+        details: error.message || 'No additional details', 
+        decline_code: error.decline_code || 'No decline code', 
+        code: error.code || 'No error code',
+        param: error.param
+      });
     } else {
-      // Handle any other types of errors as internal server errors
-      res.status(500).json({ error: 'Internal Server Error', details: error.message });
+      res.status(500).json({ error: 'Internal Server Error', details: error.message || 'No additional details' });
     }
   }
 }
