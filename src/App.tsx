@@ -20,6 +20,7 @@ import Blog from './pages/Blog';
 import Careers from './pages/Careers';
 import Press from './pages/Press';
 import Footer from './components/Footer';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -34,12 +35,12 @@ function App() {
             <Route path="/features" element={<Features />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/contract/:id" element={<ContractDetail />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/documents" element={<DocumentLibrary />} />
-            <Route path="/research" element={<LegalResearch />} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/contract/:id" element={<ProtectedRoute><ContractDetail /></ProtectedRoute>} />
+            <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/documents" element={<ProtectedRoute><DocumentLibrary /></ProtectedRoute>} />
+            <Route path="/research" element={<ProtectedRoute><LegalResearch /></ProtectedRoute>} />
             <Route path="/get-started" element={<GetStarted />} />
             <Route path="/about" element={<About />} />
             <Route path="/blog" element={<Blog />} />

@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { Shield, ArrowRight, Sparkles, FileText, Scale, Brain } from 'lucide-react';
 import { Link } from 'react-router-dom';
