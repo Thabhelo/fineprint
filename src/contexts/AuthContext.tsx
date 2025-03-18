@@ -22,7 +22,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isSupabaseConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
 
   useEffect(() => {
-    // Fetch session and role on initial load
     const getSession = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
@@ -39,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getSession();
 
     // Listen for auth state changes
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserRole(session.user.id);
@@ -47,10 +46,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription?.unsubscribe();
+    return () => {
+      if (typeof authListener?.unsubscribe === "function") {
+        authListener.unsubscribe();
+      }
+    };
   }, []);
 
-  // Fetch user role from Supabase database
   const fetchUserRole = async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
@@ -74,7 +76,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
 
-      // Assign default role
       await supabase.from('profiles').update({ role: 'user' }).eq('id', data.user?.id);
 
       toast.success('Check your email to confirm your account!');
@@ -89,7 +90,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      // Fetch user role after sign-in
       fetchUserRole(data.user.id);
       
       toast.success('Successfully signed in!');
