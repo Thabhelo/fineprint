@@ -1,5 +1,5 @@
 // src/lib/groq.ts
-import Groq from 'groq-sdk';
+import { Groq } from 'groq-sdk';
 
 if (!import.meta.env.VITE_GROQ_API_KEY) {
   console.warn('VITE_GROQ_API_KEY environment variable is not set');
@@ -17,13 +17,11 @@ const groq = new Groq({
 });
 
 export async function sendMessageToGroq(
-  message: string,
-  conversationHistory: GroqMessage[] = []
-) {
+message: string, conversationHistory: GroqMessage[] = [], p0: { temperature: number; maxTokens: number; }) {
   try {
-    const messages: Groq.Chat.CompletionCreateParams['messages'] = [
+    const messages = [
       {
-        role: "system",
+        role: "system" as const,
         content: `You are an expert legal AI assistant powered by Groq's advanced language model. 
                  Provide accurate, clear, and concise legal information and analysis. 
                  Focus on helping users understand complex legal concepts and documents.
@@ -31,16 +29,16 @@ export async function sendMessageToGroq(
       },
       ...conversationHistory,
       {
-        role: "user",
+        role: "user" as const,
         content: message
       }
     ];
 
-    const params: Groq.Chat.CompletionCreateParams = {
+    const params = {
       messages,
       model: "llama3-8b-8192",
-      temperature: 0.7,
-      max_tokens: 2048
+      temperature: p0.temperature,
+      max_tokens: p0.maxTokens
     };
     
     const chatCompletion = await groq.chat.completions.create(params);

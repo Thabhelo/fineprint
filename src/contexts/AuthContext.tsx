@@ -6,8 +6,11 @@ import { toast } from 'sonner';
 interface AuthContextType {
   user: User | null;
   role: string | null;
-  signUp: (email: string, password: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<any>;
+  signIn: (email: string, password: string) => Promise<any>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithGithub: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   loading: boolean;
   isSupabaseConfigured: boolean;
@@ -47,38 +50,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      if (typeof authListener?.unsubscribe === "function") {
-        authListener.unsubscribe();
+      if (authListener && typeof authListener.subscription?.unsubscribe === "function") {
+        authListener.subscription.unsubscribe();
       }
     };
   }, []);
 
   const fetchUserRole = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
+  try {
+    // First, try to get the role from the user_profiles table
+    const { data: profileData, error: profileError } = await supabase
+      .from('user_profiles')
       .select('role')
-      .eq('id', userId)
+      .eq('user_id', userId)
       .single();
-    if (error) {
-      toast.error("Failed to retrieve user role.");
+
+    if (profileError) {
+      // If that fails, try with the profiles table
+      const { data: legacyData, error: legacyError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+        
+      if (legacyError) {
+        console.error("Failed to retrieve user role:", legacyError);
+        return;
+      }
+      
+      setRole(legacyData?.role || null);
       return;
     }
-    setRole(data.role);
+    
+    setRole(profileData?.role || null);
+  } catch (error) {
+    console.error("Error fetching user role:", error);
+    toast.error("Failed to retrieve user role.");
+  }
   };
 
   const signUp = async (email: string, password: string) => {
     if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
       toast.error("Password must be at least 8 characters long and include a number and an uppercase letter.");
-      return;
+      throw new Error("Password requirements not met");
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      // Just sign up - don't try to update the profile immediately
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          data: {
+            // Store role in user metadata for immediate access
+            role: 'user',
+          }
+        }
+      });
+      
       if (error) throw error;
-
-      await supabase.from('profiles').update({ role: 'user' }).eq('id', data.user?.id);
-
+      
       toast.success('Check your email to confirm your account!');
+      return data;
     } catch (error: any) {
       toast.error(error.message);
       throw error;
@@ -93,8 +126,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       fetchUserRole(data.user.id);
       
       toast.success('Successfully signed in!');
+      return data;
     } catch (error: any) {
-      toast.error(error.message);
+      if (error.message.includes('Invalid login credentials')) {
+        toast.error('Invalid email or password. Please try again.');
+      } else {
+        toast.error(error.message);
+      }
+      throw error;
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth-callback`
+        }
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      toast.error(`Google sign in failed: ${error.message}`);
+      throw error;
+    }
+  };
+
+  const signInWithGithub = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: `${window.location.origin}/auth-callback`
+        }
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      toast.error(`GitHub sign in failed: ${error.message}`);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast.success('Password reset instructions sent to your email!');
+    } catch (error: any) {
+      toast.error(`Failed to send reset email: ${error.message}`);
       throw error;
     }
   };
@@ -113,7 +194,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, signUp, signIn, signOut, loading, isSupabaseConfigured }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      role, 
+      signUp, 
+      signIn, 
+      signInWithGoogle,
+      signInWithGithub,
+      resetPassword,
+      signOut, 
+      loading, 
+      isSupabaseConfigured 
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -6,11 +6,12 @@ interface ContactEmailProps {
   message: string;
 }
 
-interface AnalysisEmailProps {
+// Updated to match the interface in supabase.ts
+export interface AnalysisEmailProps {
   userName: string;
   contractTitle: string;
-  riskLevel: string;
-  issues: Array<{ severity: string; description: string }>;
+  riskLevel: 'low' | 'medium' | 'high';
+  issuesCount: number;
 }
 
 export async function sendContactEmail(data: ContactEmailProps) {
@@ -42,6 +43,7 @@ export async function sendAnalysisEmail(to: string, props: AnalysisEmailProps) {
   try {
     console.log("📨 Sending analysis email with EmailJS...");
     
+    // Updated to use issuesCount instead of issues array
     const response = await emailjs.send(
       'service_ile56zc',
       'template_8y2z9dp',
@@ -50,7 +52,7 @@ export async function sendAnalysisEmail(to: string, props: AnalysisEmailProps) {
         to_name: props.userName,
         from_email: "analysis@fineprint.ai",
         to_email: to,
-        message: `Contract Analysis Results for "${props.contractTitle}"\n\nRisk Level: ${props.riskLevel}\n\nIssues Found:\n${props.issues.map(issue => `- ${issue.severity}: ${issue.description}`).join('\n')}`,
+        message: `Contract Analysis Results for "${props.contractTitle}"\n\nRisk Level: ${props.riskLevel}\n\nIssues Found: ${props.issuesCount}`,
       },
       '_JDd2_-oFPAXuoAI5'
     );
