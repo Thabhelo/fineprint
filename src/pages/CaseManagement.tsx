@@ -34,7 +34,7 @@ export default function CaseManagement() {
     }
   ]);
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority: 'high' | 'medium' | 'low') => {
     switch (priority) {
       case 'high':
         return 'text-red-600 bg-red-100';
@@ -47,7 +47,7 @@ export default function CaseManagement() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: 'active' | 'pending' | 'closed') => {
     switch (status) {
       case 'active':
         return <Clock className="h-5 w-5 text-blue-600" />;

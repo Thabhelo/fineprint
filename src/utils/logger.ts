@@ -1,10 +1,12 @@
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
+type LogData = Record<string, unknown> | unknown[] | null;
+
 interface LogEntry {
   timestamp: string;
   level: LogLevel;
   message: string;
-  data?: any;
+  data?: LogData;
   error?: Error;
   userId?: string;
   requestId?: string;
@@ -29,7 +31,7 @@ class Logger {
     this.isDevelopment = env === 'development';
   }
 
-  private formatLog(level: LogLevel, message: string, data?: any, error?: Error): LogEntry {
+  private formatLog(level: LogLevel, message: string, data?: LogData, error?: Error): LogEntry {
     return {
       timestamp: new Date().toISOString(),
       level,
@@ -55,19 +57,19 @@ class Logger {
     }
   }
 
-  info(message: string, data?: any) {
+  info(message: string, data?: LogData) {
     this.log(this.formatLog('info', message, data));
   }
 
-  warn(message: string, data?: any) {
+  warn(message: string, data?: LogData) {
     this.log(this.formatLog('warn', message, data));
   }
 
-  error(message: string, error?: Error, data?: any) {
+  error(message: string, error?: Error, data?: LogData) {
     this.log(this.formatLog('error', message, data, error));
   }
 
-  debug(message: string, data?: any) {
+  debug(message: string, data?: LogData) {
     if (this.isDevelopment) {
       this.log(this.formatLog('debug', message, data));
     }

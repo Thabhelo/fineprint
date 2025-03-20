@@ -32,12 +32,11 @@ export default function SignUp() {
       await signIn(email, password);
       toast.success('Account created successfully!');
       navigate('/dashboard');
-    } catch (error: any) {
-      console.error('Error signing up:', error);
-      if (error.message.includes('User already registered')) {
-        toast.error('This email is already registered. Please sign in instead.');
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(error.message);
       } else {
-        toast.error(error.message || 'Failed to create account. Please try again.');
+        toast.error('An unexpected error occurred');
       }
     } finally {
       setLoading(false);

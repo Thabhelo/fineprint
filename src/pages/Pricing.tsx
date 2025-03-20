@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
+import { toast } from 'sonner';
 
 // Load Stripe publishable key from environment variables
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -65,62 +66,39 @@ export default function Pricing() {
   };
 
   // Handle subscription logic for each tier
-  const handleSubscribe = async (tierName: string) => {
-    // Free tier: redirect to /features
-    if (tierName === 'Free') {
-      window.location.href = '/features';
-      return;
-    }
-
-    // Enterprise tier: redirect to /contact
-    if (tierName === 'Enterprise') {
-      window.location.href = '/contact';
-      return;
-    }
-
-    // Otherwise, handle Premium checkout via Stripe
-    setLoading(true);
+  const handleSubscribe = async (tierName: 'basic' | 'pro' | 'enterprise') => {
     try {
-      // Check if the environment variable is defined, otherwise use a fallback
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-      console.log('Using API URL:', apiUrl); // Debug the value
-      // Ensure the API URL doesn't end with a slash and append the path
-      const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
-      console.log('Requesting URL:', `${baseUrl}/create-checkout-session`); // Debug the full URL
-
-      const response = await fetch(`${baseUrl}/create-checkout-session`, {
+      const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: subscriptionPeriod, tier: tierName }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tier: tierName,
+        }),
       });
 
       if (!response.ok) {
-        // If the API call fails, show an error or handle gracefully
-        const errorData = await response.json();
-        console.error(`Error: ${response.status} ${response.statusText}`, errorData);
-        setLoading(false);
-        return;
+        throw new Error('Failed to create checkout session');
       }
 
       const { sessionId } = await response.json();
+      const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-      // Load Stripe
-      const stripe = await stripePromise;
       if (!stripe) {
-        console.error('Stripe could not be loaded.');
-        setLoading(false);
-        return;
+        throw new Error('Failed to load Stripe');
       }
 
-      // Redirect to Stripe Checkout
-      const { error } = await stripe.redirectToCheckout({ sessionId });
+      const { error } = await stripe.redirectToCheckout({
+        sessionId,
+      });
+
       if (error) {
-        console.error('Stripe Checkout error:', error);
+        throw error;
       }
     } catch (error) {
-      console.error('Error creating checkout session:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error:', error);
+      toast.error('Failed to start subscription process');
     }
   };
 
@@ -202,7 +180,7 @@ export default function Pricing() {
                     <button
                     type="button"
                     onClick={async () => {
-                      await handleSubscribe(tier.name);
+                      await handleSubscribe(tier.name as 'basic' | 'pro' | 'enterprise');
                     }}
                     disabled={loading}
                     className={`mt-8 block w-full py-2 px-4 border border-transparent rounded-md text-center font-medium ${

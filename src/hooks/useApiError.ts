@@ -4,7 +4,7 @@ import { logger } from '../utils/logger';
 interface ApiError {
   message: string;
   code?: string;
-  details?: unknown;
+  details?: Record<string, unknown>;
 }
 
 export function useApiError() {
@@ -12,34 +12,21 @@ export function useApiError() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleError = useCallback((error: unknown) => {
-    let apiError: ApiError;
-    let errorObject: Error;
-
     if (error instanceof Error) {
-      apiError = {
+      setError({
         message: error.message,
-        details: error.stack,
-      };
-      errorObject = error;
+        details: { stack: error.stack }
+      });
     } else if (typeof error === 'object' && error !== null) {
-      const message = (error as any).message || 'An unexpected error occurred';
-      apiError = {
-        message,
-        code: (error as any).code,
-        details: error,
-      };
-      errorObject = new Error(message);
+      setError({
+        message: 'An unexpected error occurred',
+        details: error as Record<string, unknown>
+      });
     } else {
-      const message = 'An unexpected error occurred';
-      apiError = {
-        message,
-        details: error,
-      };
-      errorObject = new Error(message);
+      setError({
+        message: String(error)
+      });
     }
-
-    logger.error('API Error:', errorObject, { apiError });
-    setError(apiError);
   }, []);
 
   const clearError = useCallback(() => {
@@ -69,5 +56,6 @@ export function useApiError() {
     handleError,
     clearError,
     withErrorHandling,
+    setIsLoading
   };
 } 
