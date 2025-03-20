@@ -31,13 +31,14 @@ class MockIntersectionObserver implements IntersectionObserver {
   readonly rootMargin: string = '';
   readonly thresholds: ReadonlyArray<number> = [];
 
-  constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
-    this.callback = callback;
-    this.options = options;
+  constructor(_callback: IntersectionObserverCallback, _options?: IntersectionObserverInit) {
+    // Store callback and options for potential future use
+    this._callback = _callback;
+    this._options = _options;
   }
 
-  private callback: IntersectionObserverCallback;
-  private options?: IntersectionObserverInit;
+  private _callback: IntersectionObserverCallback;
+  private _options?: IntersectionObserverInit;
 
   observe(): void {}
   unobserve(): void {}

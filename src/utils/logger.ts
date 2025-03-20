@@ -25,6 +25,10 @@ class Logger {
     return Logger.instance;
   }
 
+  setEnvironment(env: string) {
+    this.isDevelopment = env === 'development';
+  }
+
   private formatLog(level: LogLevel, message: string, data?: any, error?: Error): LogEntry {
     return {
       timestamp: new Date().toISOString(),

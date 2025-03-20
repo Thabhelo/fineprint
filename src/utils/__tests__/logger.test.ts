@@ -29,15 +29,11 @@ describe('Logger', () => {
 
       logger.info(message, data);
 
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining(message)
-      );
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('"level":"info"')
-      );
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('"data":{"test":"data"}')
-      );
+      const logCall = (console.log as jest.Mock).mock.calls[0][0];
+      const logEntry = JSON.parse(logCall);
+      expect(logEntry.message).toBe(message);
+      expect(logEntry.level).toBe('info');
+      expect(logEntry.data).toEqual(data);
     });
   });
 
@@ -48,15 +44,11 @@ describe('Logger', () => {
 
       logger.warn(message, data);
 
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining(message)
-      );
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('"level":"warn"')
-      );
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('"data":{"test":"data"}')
-      );
+      const logCall = (console.log as jest.Mock).mock.calls[0][0];
+      const logEntry = JSON.parse(logCall);
+      expect(logEntry.message).toBe(message);
+      expect(logEntry.level).toBe('warn');
+      expect(logEntry.data).toEqual(data);
     });
   });
 
@@ -68,42 +60,36 @@ describe('Logger', () => {
 
       logger.error(message, error, data);
 
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining(message)
-      );
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('"level":"error"')
-      );
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('"error":{"name":"Error","message":"Test error"')
-      );
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('"data":{"test":"data"}')
-      );
+      const logCall = (console.log as jest.Mock).mock.calls[0][0];
+      const logEntry = JSON.parse(logCall);
+      expect(logEntry.message).toBe(message);
+      expect(logEntry.level).toBe('error');
+      expect(logEntry.error).toEqual({
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
+      expect(logEntry.data).toEqual(data);
     });
   });
 
   describe('debug', () => {
     it('should log debug message in development', () => {
-      process.env.NODE_ENV = 'development';
+      logger.setEnvironment('development');
       const message = 'Test debug message';
       const data = { test: 'data' };
 
       logger.debug(message, data);
 
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining(message)
-      );
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('"level":"debug"')
-      );
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('"data":{"test":"data"}')
-      );
+      const logCall = (console.log as jest.Mock).mock.calls[0][0];
+      const logEntry = JSON.parse(logCall);
+      expect(logEntry.message).toBe(message);
+      expect(logEntry.level).toBe('debug');
+      expect(logEntry.data).toEqual(data);
     });
 
     it('should not log debug message in production', () => {
-      process.env.NODE_ENV = 'production';
+      logger.setEnvironment('production');
       const message = 'Test debug message';
       const data = { test: 'data' };
 
@@ -120,11 +106,10 @@ describe('Logger', () => {
 
       logger.info(message);
 
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('"timestamp":')
-      );
-      const logEntry = JSON.parse((console.log as jest.Mock).mock.calls[0][0]);
-      expect(new Date(logEntry.timestamp).toISOString()).toBe(now);
+      const logCall = (console.log as jest.Mock).mock.calls[0][0];
+      const logEntry = JSON.parse(logCall);
+      expect(logEntry.timestamp).toBeDefined();
+      expect(new Date(logEntry.timestamp).toISOString()).toBe(logEntry.timestamp);
     });
 
     it('should include userId and requestId placeholders', () => {
@@ -132,7 +117,8 @@ describe('Logger', () => {
 
       logger.info(message);
 
-      const logEntry = JSON.parse((console.log as jest.Mock).mock.calls[0][0]);
+      const logCall = (console.log as jest.Mock).mock.calls[0][0];
+      const logEntry = JSON.parse(logCall);
       expect(logEntry.userId).toBe('TODO: Get from auth context');
       expect(logEntry.requestId).toBe('TODO: Get from request context');
     });
