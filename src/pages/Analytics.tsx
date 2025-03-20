@@ -4,6 +4,13 @@ import { BarChart, LineChart, PieChart, Activity } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 
+interface Contract {
+  id: string;
+  title: string;
+  risk_level: 'low' | 'medium' | 'high';
+  created_at: string;
+}
+
 export default function Analytics() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -34,11 +41,10 @@ export default function Analytics() {
       if (contractsError) throw contractsError;
 
       // Process contracts data for charts
-      const riskLevels = contracts?.reduce((acc: any, contract: any) => {
-        const risk = contract.analysis_results?.[0]?.risk_level || 'unknown';
-        acc[risk] = (acc[risk] || 0) + 1;
+      const riskLevels = contracts?.reduce((acc: Record<string, number>, contract: Contract) => {
+        acc[contract.risk_level] = (acc[contract.risk_level] || 0) + 1;
         return acc;
-      }, {});
+      }, {}) || {};
 
       setStats({
         usage: usageStats,
@@ -170,7 +176,7 @@ export default function Analytics() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {stats.contracts.map((contract: any) => (
+                {stats.contracts.map((contract: Contract) => (
                   <tr key={contract.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {format(new Date(contract.created_at), 'PPp')}

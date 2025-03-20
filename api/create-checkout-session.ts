@@ -79,20 +79,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     res.status(200).json({ sessionId: session.id });
-  } catch (error: any) {
-    console.error('Error creating checkout session:', error);
-    if (error.type === 'StripeCardError') {
-      res.status(500).json({ error: 'Internal Server Error', details: error.message || 'No additional details' });
-    } else if (error.type === 'StripeInvalidRequestError') {
-      res.status(400).json({ 
-        error: 'Invalid request',
-        details: error.message || 'No additional details', 
-        decline_code: error.decline_code || 'No decline code', 
-        code: error.code || 'No error code',
-        param: error.param
-      });
+  } catch (error) {
+    if (error instanceof Error) {
+      return res.status(500).json({ error: error.message });
     } else {
-      res.status(500).json({ error: 'Internal Server Error', details: error.message || 'No additional details' });
+      return res.status(500).json({ error: 'An unexpected error occurred' });
     }
   }
 }

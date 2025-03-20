@@ -25,12 +25,11 @@ export default function SignIn() {
       await signIn(email, password);
       toast.success('Successfully signed in!');
       navigate('/dashboard');
-    } catch (error: any) {
-      console.error('Error signing in:', error);
-      if (error.message === 'Invalid login credentials') {
-        toast.error('Invalid email or password. Please try again.');
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(error.message);
       } else {
-        toast.error(error.message || 'Failed to sign in. Please try again.');
+        toast.error('An unexpected error occurred');
       }
     } finally {
       setLoading(false);

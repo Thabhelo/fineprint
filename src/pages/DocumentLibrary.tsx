@@ -4,15 +4,16 @@ import { FileText, Search, Filter, Upload, Download, Share2, Tags, AlertTriangle
 import { toast } from 'sonner'; 
 import { analyzeContract, supabase } from '../lib/supabase';
 import { format } from 'date-fns';
+import type { Contract } from '../lib/supabase';
 
-const DEFAULT_DOCUMENTS = [
+const DEFAULT_DOCUMENTS: Document[] = [
   {
     id: '1',
     title: 'Standard Employment Agreement',
     category: 'Employment',
     tags: ['contract', 'employment', 'template'],
     lastModified: new Date().toISOString(),
-    status: 'complete',
+    status: 'complete' as const,
     riskLevel: 'low'
   },
   {
@@ -21,7 +22,7 @@ const DEFAULT_DOCUMENTS = [
     category: 'Confidentiality',
     tags: ['NDA', 'confidentiality', 'template'],
     lastModified: new Date().toISOString(),
-    status: 'complete',
+    status: 'complete' as const,
     riskLevel: 'medium'
   },
   {
@@ -30,7 +31,7 @@ const DEFAULT_DOCUMENTS = [
     category: 'Services',
     tags: ['SLA', 'services', 'contract'],
     lastModified: new Date().toISOString(),
-    status: 'complete',
+    status: 'complete' as const,
     riskLevel: 'low'
   }
 ];
@@ -41,8 +42,8 @@ interface Document {
   category: string;
   tags: string[];
   lastModified: string;
-  status?: 'analyzing' | 'complete' | 'error';
-  riskLevel?: 'low' | 'medium' | 'high';
+  status: 'analyzing' | 'complete' | 'error';
+  riskLevel: 'low' | 'medium' | 'high';
 }
 
 interface DocumentStats {
@@ -64,6 +65,28 @@ export default function DocumentLibrary() {
   });
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchContracts();
+  }, []);
+
+  const fetchContracts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('contracts')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setContracts(data || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch contracts');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadDocuments();
@@ -99,7 +122,7 @@ export default function DocumentLibrary() {
         category: contract.category || 'Uncategorized',
         tags: contract.tags || [],
         lastModified: contract.updated_at,
-        status: 'complete',
+        status: 'complete' as const,
         riskLevel: contract.analysis_results?.[0]?.risk_level || 'low'
       })) : DEFAULT_DOCUMENTS;
 
@@ -152,7 +175,8 @@ export default function DocumentLibrary() {
         category: 'Pending',
         tags: ['new'],
         lastModified: new Date().toISOString(),
-        status: 'analyzing'
+        status: 'analyzing',
+        riskLevel: 'low'
       };
       
       setDocuments(prev => [tempDoc, ...prev]);
@@ -179,13 +203,16 @@ export default function DocumentLibrary() {
       // Update the document to show error state
       setDocuments(prev => prev.map(doc => 
         doc.id === Date.now().toString()
-          ? { ...doc, status: 'error' }
+          ? { ...doc, status: 'error', riskLevel: 'high' }
           : doc
       ));
     } finally {
       setUploading(false);
     }
   };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="min-h-screen pt-20 bg-gradient-to-b from-white to-indigo-50">

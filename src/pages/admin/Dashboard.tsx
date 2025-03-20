@@ -3,67 +3,64 @@ import { motion } from 'framer-motion';
 import { Users, FileText, AlertTriangle, Activity, Settings } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
-
-interface AdminStats {
-  totalUsers: number;
-  totalContracts: number;
-  highRiskContracts: number;
-  activeUsers: number;
-}
+import { toast } from 'sonner';
 
 interface AdminLog {
   id: string;
   action: string;
   created_at: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
+}
+
+interface DashboardStats {
+  totalUsers: number;
+  totalContracts: number;
+  totalAnalyses: number;
+  totalUsage: number;
 }
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<AdminStats>({
+  const [logs, setLogs] = useState<AdminLog[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalContracts: 0,
-    highRiskContracts: 0,
-    activeUsers: 0
+    totalAnalyses: 0,
+    totalUsage: 0
   });
-  const [recentActivity, setRecentActivity] = useState<AdminLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadAdminData();
-  }, []);
+    async function fetchStats() {
+      try {
+        const [
+          { count: userCount },
+          { count: contractCount },
+          { count: analysisCount },
+          { count: usageCount }
+        ] = await Promise.all([
+          supabase.from('user_profiles').select('*', { count: 'exact', head: true }),
+          supabase.from('contracts').select('*', { count: 'exact', head: true }),
+          supabase.from('analysis_results').select('*', { count: 'exact', head: true }),
+          supabase.from('usage_stats').select('*', { count: 'exact', head: true })
+        ]);
 
-  async function loadAdminData() {
-    try {
-      const [usersCount, contractsCount, highRiskCount, activeUsersCount, activity] = await Promise.all([
-        supabase.from('user_profiles').select('id', { count: 'exact' }),
-        supabase.from('contracts').select('id', { count: 'exact' }),
-        supabase.from('analysis_results').select('id').eq('risk_level', 'high').count(),
-        supabase.from('usage_stats')
-          .select('id')
-          .gt('updated_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-          .count(),
-        supabase.from('admin_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(10)
-      ]);
-
-      setStats({
-        totalUsers: usersCount.count || 0,
-        totalContracts: contractsCount.count || 0,
-        highRiskContracts: highRiskCount.count || 0,
-        activeUsers: activeUsersCount.count || 0
-      });
-
-      if (activity.data) {
-        setRecentActivity(activity.data);
+        setStats({
+          totalUsers: userCount || 0,
+          totalContracts: contractCount || 0,
+          totalAnalyses: analysisCount || 0,
+          totalUsage: usageCount || 0
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          toast.error(error.message);
+        } else {
+          toast.error('Failed to fetch dashboard stats');
+        }
       }
-    } catch (error) {
-      console.error('Error loading admin data:', error);
-    } finally {
-      setLoading(false);
     }
-  }
+
+    fetchStats();
+  }, []);
 
   if (loading) {
     return (
@@ -127,7 +124,7 @@ export default function AdminDashboard() {
               <AlertTriangle className="h-8 w-8 text-red-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">High Risk Contracts</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.highRiskContracts}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats.totalAnalyses}</p>
               </div>
             </div>
           </motion.div>
@@ -142,7 +139,7 @@ export default function AdminDashboard() {
               <Activity className="h-8 w-8 text-green-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Active Users (7d)</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.activeUsers}</p>
+                <p className="text-2xl font-semibold text-gray-900">{stats.totalUsage}</p>
               </div>
             </div>
           </motion.div>
@@ -157,7 +154,7 @@ export default function AdminDashboard() {
         >
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Recent Activity</h2>
           <div className="space-y-4">
-            {recentActivity.map((activity) => (
+            {logs.map((activity) => (
               <div
                 key={activity.id}
                 className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"

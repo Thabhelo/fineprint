@@ -9,8 +9,8 @@ interface ContactEmailProps {
 interface AnalysisEmailProps {
   userName: string;
   contractTitle: string;
-  riskLevel: string;
-  issues: Array<{ severity: string; description: string }>;
+  riskLevel: 'low' | 'medium' | 'high';
+  issues: Array<{ severity: 'low' | 'medium' | 'high'; description: string }>;
 }
 
 export async function sendContactEmail(data: ContactEmailProps) {

@@ -6,6 +6,13 @@ import { supabase } from '../lib/supabase';
 import { exportPDF } from '../lib/api';
 import { toast } from 'sonner';
 
+interface Issue {
+  id: string;
+  severity: 'low' | 'medium' | 'high';
+  description: string;
+  created_at: string;
+}
+
 export default function ContractDetail() {
   const { id } = useParams<{ id: string }>();
   const [contract, setContract] = useState<any>(null);
@@ -134,7 +141,7 @@ export default function ContractDetail() {
           <div className="mb-8">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Detected Issues</h2>
             <div className="space-y-4">
-              {issues.map((issue: any) => (
+              {issues.map((issue: Issue) => (
                 <motion.div
                   key={issue.id}
                   initial={{ opacity: 0, x: -20 }}
