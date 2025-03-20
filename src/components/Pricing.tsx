@@ -1,5 +1,8 @@
 import React from 'react';
 import { Check } from 'lucide-react';
+import { loadStripe } from '@stripe/stripe-js';
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 const tiers = [
   {
@@ -44,6 +47,36 @@ const tiers = [
 ];
 
 export default function Pricing() {
+  const handleSubscribe = async (plan: 'monthly' | 'yearly') => {
+    try {
+      console.log('Using API URL:', API_URL);
+      console.log('Requesting URL:', `${API_URL}/create-checkout-session`);
+      
+      const response = await fetch(`${API_URL}/create-checkout-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ plan }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const { sessionId } = await response.json();
+      
+      // Redirect to Stripe Checkout
+      const stripe = await loadStripe(process.env.VITE_STRIPE_PUBLISHABLE_KEY!);
+      if (stripe) {
+        await stripe.redirectToCheckout({ sessionId });
+      }
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      // You might want to show an error message to the user here
+    }
+  };
+
   return (
     <div id="pricing" className="bg-gray-100 py-12">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -81,6 +114,7 @@ export default function Pricing() {
                 </p>
                 <p className="mt-2 text-sm text-gray-500">{tier.description}</p>
                 <button
+                  onClick={() => tier.name === 'Premium' ? handleSubscribe('monthly') : null}
                   className={`mt-4 w-full py-2 px-3 border border-transparent rounded-md text-center font-medium ${
                     tier.highlighted
                       ? 'bg-indigo-600 text-white hover:bg-indigo-700'
