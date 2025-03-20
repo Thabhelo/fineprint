@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -22,20 +22,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const isSupabaseConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+  
+  // Use the shared check from supabase.ts
+  const supabaseConfigured = isSupabaseConfigured;
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        toast.error("Failed to retrieve session.");
-        return;
-      }
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserRole(session.user.id);
-      }
+    // Skip auth initialization if Supabase isn't configured
+    if (!supabaseConfigured) {
       setLoading(false);
+      return;
+    }
+    
+    const getSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error("Failed to retrieve session:", error);
+          toast.error("Failed to retrieve session.");
+          setLoading(false);
+          return;
+        }
+        
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchUserRole(session.user.id);
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error("Unexpected error getting session:", err);
+        setLoading(false);
+      }
     };
 
     getSession();
@@ -54,90 +70,132 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         authListener.subscription.unsubscribe();
       }
     };
-  }, []);
+  }, [supabaseConfigured]);
 
   const fetchUserRole = async (userId: string) => {
-  try {
-    // First, try to get the role from the user_profiles table
-    const { data: profileData, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('user_id', userId)
-      .single();
-
-    if (profileError) {
-      // If that fails, try with the profiles table
-      const { data: legacyData, error: legacyError } = await supabase
-        .from('profiles')
+    if (!supabaseConfigured) return;
+    
+    try {
+      // First, try to get the role from user_profiles table
+      const { data, error } = await supabase
+        .from('user_profiles')
         .select('role')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .single();
         
-      if (legacyError) {
-        console.error("Failed to retrieve user role:", legacyError);
+      if (error) {
+        // If no profile found, try user metadata
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        
+        if (!userError && userData?.user?.user_metadata?.role) {
+          setRole(userData.user.user_metadata.role as string);
+          return;
+        }
+        
+        // If all else fails, set a default role
+        console.error("Error fetching user role:", error);
+        setRole('user');
         return;
       }
       
-      setRole(legacyData?.role || null);
-      return;
+      // Role found in user_profiles
+      setRole(data.role || 'user');
+    } catch (error) {
+      console.error("Unexpected error fetching user role:", error);
+      setRole('user');
     }
-    
-    setRole(profileData?.role || null);
-  } catch (error) {
-    console.error("Error fetching user role:", error);
-    toast.error("Failed to retrieve user role.");
-  }
   };
 
   const signUp = async (email: string, password: string) => {
+    if (!supabaseConfigured) {
+      toast.error("Authentication is not configured.");
+      throw new Error("Supabase not configured");
+    }
+    
     if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
       toast.error("Password must be at least 8 characters long and include a number and an uppercase letter.");
       throw new Error("Password requirements not met");
     }
-
+  
     try {
-      // Just sign up - don't try to update the profile immediately
+      console.log('🔐 Attempting signup with email:', email);
+      
+      // Using basic signup options to avoid schema issues
       const { data, error } = await supabase.auth.signUp({ 
         email, 
         password,
         options: {
           data: {
-            // Store role in user metadata for immediate access
-            role: 'user',
+            role: 'user'
           }
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Detailed signup error:', {
+          message: error.message,
+          status: error.status,
+          code: error.code
+        });
+        
+        // More specific error handling
+        if (error.message.includes('User already exists')) {
+          toast.error('An account with this email already exists.');
+        } else {
+          toast.error(error.message || "Signup failed");
+        }
+        
+        throw error;
+      }
       
+      console.log('✅ Signup successful:', data);
       toast.success('Check your email to confirm your account!');
       return data;
     } catch (error: any) {
-      toast.error(error.message);
+      console.error('❌ Exception during signup:', error);
+      toast.error(error.message || "An unexpected error occurred");
       throw error;
     }
   };
 
   const signIn = async (email: string, password: string) => {
+    if (!supabaseConfigured) {
+      toast.error("Authentication is not configured.");
+      throw new Error("Supabase not configured");
+    }
+    
     try {
+      console.log('🔐 Attempting signin with email:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error during signin:', error);
+        throw error;
+      }
 
+      console.log('✅ Signin successful:', data.user.id);
       fetchUserRole(data.user.id);
       
       toast.success('Successfully signed in!');
       return data;
     } catch (error: any) {
+      console.error('❌ Exception during signin:', error);
+      
       if (error.message.includes('Invalid login credentials')) {
         toast.error('Invalid email or password. Please try again.');
       } else {
-        toast.error(error.message);
+        toast.error(error.message || "An unexpected error occurred");
       }
       throw error;
     }
   };
 
   const signInWithGoogle = async () => {
+    if (!supabaseConfigured) {
+      toast.error("Authentication is not configured.");
+      throw new Error("Supabase not configured");
+    }
+    
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -153,6 +211,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGithub = async () => {
+    if (!supabaseConfigured) {
+      toast.error("Authentication is not configured.");
+      throw new Error("Supabase not configured");
+    }
+    
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
@@ -168,6 +231,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
+    if (!supabaseConfigured) {
+      toast.error("Authentication is not configured.");
+      throw new Error("Supabase not configured");
+    }
+    
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
@@ -181,6 +249,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    if (!supabaseConfigured) {
+      setUser(null);
+      setRole(null);
+      return;
+    }
+    
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -204,7 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resetPassword,
       signOut, 
       loading, 
-      isSupabaseConfigured 
+      isSupabaseConfigured: supabaseConfigured
     }}>
       {children}
     </AuthContext.Provider>

@@ -4,7 +4,7 @@ import { UserPlus, AlertTriangle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
-import { supabase, updateUserSettings } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 export default function SignUp() {
   const [email, setEmail] = useState('');
@@ -20,7 +20,7 @@ export default function SignUp() {
   // Check environment variables on component mount
   useEffect(() => {
     const checkEnv = async () => {
-      const url = import.meta.env.VITE_SUPABASE_URL;
+      const url = 'https://quqzfvucxdvlqvnjnwkn.supabase.co';
       
       // Check if the key is valid and verify required tables exist
       try {
@@ -58,37 +58,52 @@ export default function SignUp() {
 
   const setupUserAccount = async (userId: string) => {
     try {
-      // Step 1: Create user profile
+      console.log('🔍 Setting up user account with details:', {
+        userId,
+        fullName,
+        email,
+        company,
+        role
+      });
+  
+      // Using snake_case for database columns
       const { error: profileError } = await supabase
         .from('user_profiles')
-        .insert({
+        .upsert({
           user_id: userId,
-          full_name: fullName,
-          company,
-          role
+          full_name: fullName || email.split('@')[0],
+          email: email,
+          company: company || null,
+          role: role || null
         });
-
+  
       if (profileError) {
-        console.error('Error creating user profile:', profileError);
+        console.error('❌ Error creating user profile:', profileError);
         throw profileError;
       }
       
-      console.log('✅ User profile created successfully');
+      console.log('✅ User profile created/updated successfully');
       
-      // Step 2: Create default user settings
-      const defaultSettings = {
-        userId,
-        emailNotifications: true,
-        notificationFrequency: 'instant',
-        theme: 'light',
-        language: 'en'
-      };
+      // Create default user settings with correct snake_case field names
+      const { error: settingsError } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: userId,
+          email_notifications: true,
+          notification_frequency: 'daily',
+          theme: 'light',
+          language: 'en'
+        });
+        
+      if (settingsError) {
+        console.error('❌ Error creating user settings:', settingsError);
+        throw settingsError;
+      }
       
-      await updateUserSettings(defaultSettings);
       console.log('✅ Default user settings created');
       
     } catch (error) {
-      console.error('Error in setupUserAccount:', error);
+      console.error('❌ Comprehensive error in setupUserAccount:', error);
       throw error;
     }
   };
