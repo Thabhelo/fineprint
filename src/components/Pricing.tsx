@@ -1,5 +1,9 @@
 import React from 'react';
 import { Check } from 'lucide-react';
+import { loadStripe } from '@stripe/stripe-js';
+
+const API_URL = import.meta.env.VITE_API_URL;
+const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
 const tiers = [
   {
@@ -44,6 +48,47 @@ const tiers = [
 ];
 
 export default function Pricing() {
+  const handleSubscribe = async (plan: 'monthly' | 'yearly') => {
+    try {
+      console.log('Using API URL:', API_URL);
+      console.log('Requesting URL:', `${API_URL}/create-checkout-session`);
+      console.log('Request payload:', { plan });
+      
+      const response = await fetch(`${API_URL}/create-checkout-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ plan }),
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        console.error('Error response data:', errorData);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const { sessionId } = await response.json();
+      console.log('Received session ID:', sessionId);
+      
+      // Redirect to Stripe Checkout
+      const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
+      if (stripe) {
+        console.log('Redirecting to Stripe Checkout...');
+        await stripe.redirectToCheckout({ sessionId });
+      } else {
+        throw new Error('Failed to load Stripe');
+      }
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      // You might want to show an error message to the user here
+    }
+  };
+
   return (
     <div id="pricing" className="bg-gray-100 py-12">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -81,6 +126,7 @@ export default function Pricing() {
                 </p>
                 <p className="mt-2 text-sm text-gray-500">{tier.description}</p>
                 <button
+                  onClick={() => tier.name === 'Premium' ? handleSubscribe('monthly') : null}
                   className={`mt-4 w-full py-2 px-3 border border-transparent rounded-md text-center font-medium ${
                     tier.highlighted
                       ? 'bg-indigo-600 text-white hover:bg-indigo-700'
