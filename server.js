@@ -3,10 +3,14 @@ import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import Stripe from 'stripe';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(bodyParser.json());
@@ -27,6 +31,7 @@ app.use((req, res, next) => {
   next();
 });
 
+// API routes
 app.post('/api/create-checkout-session', async (req, res) => {
   const { plan } = req.body;
   console.log('Received plan:', plan);
@@ -67,6 +72,14 @@ app.post('/api/create-checkout-session', async (req, res) => {
     console.error('Error creating checkout session:', error);
     res.status(500).json({ error: 'Internal Server Error', details: error.message });
   }
+});
+
+// Serve static files from the dist directory
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Handle client-side routing - serve index.html for all routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
