@@ -2,7 +2,6 @@ import React from 'react';
 import { Check } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 
-const API_URL = import.meta.env.VITE_API_URL;
 const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
 const tiers = [
@@ -50,11 +49,10 @@ const tiers = [
 export default function Pricing() {
   const handleSubscribe = async (plan: 'monthly' | 'yearly') => {
     try {
-      console.log('Using API URL:', API_URL);
-      console.log('Requesting URL:', `${API_URL}/create-checkout-session`);
+      console.log('Requesting URL:', '/api/create-checkout-session');
       console.log('Request payload:', { plan });
       
-      const response = await fetch(`${API_URL}/create-checkout-session`, {
+      const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
