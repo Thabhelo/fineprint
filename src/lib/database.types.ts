@@ -185,43 +185,88 @@ export interface Database {
           }
         ];
       };
-      analysis_issues: {
+      usage_stats: {
         Row: {
           id: string;
-          analysis_id: string; // Changed from analysisId
-          type: string;
-          severity: string;
-          description: string;
-          content: string;
+          user_id: string;
+          contracts_analyzed: number;
+          total_words_analyzed: number;
+          high_risk_detected: number;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
-          analysis_id: string; // Changed from analysisId
-          type: string;
-          severity: string;
-          description: string;
-          content: string;
+          user_id: string;
+          contracts_analyzed?: number;
+          total_words_analyzed?: number;
+          high_risk_detected?: number;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
-          analysis_id?: string; // Changed from analysisId
-          type?: string;
-          severity?: string;
-          description?: string;
-          content?: string;
+          user_id?: string;
+          contracts_analyzed?: number;
+          total_words_analyzed?: number;
+          high_risk_detected?: number;
           created_at?: string;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "analysis_issues_analysis_id_fkey"; // Changed from analysisId_fkey
-            columns: ["analysis_id"]; // Changed from analysisId
+            foreignKeyName: "usage_stats_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      analysis_issues: {
+        Row: {
+          id: string;
+          contract_id: string;
+          user_id: string;
+          issue_type: string;
+          description: string;
+          severity: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          contract_id: string;
+          user_id: string;
+          issue_type: string;
+          description: string;
+          severity: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          contract_id?: string;
+          user_id?: string;
+          issue_type?: string;
+          description?: string;
+          severity?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "analysis_issues_contract_id_fkey";
+            columns: ["contract_id"];
             isOneToOne: false;
-            referencedRelation: "analysis_results";
+            referencedRelation: "contracts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "analysis_issues_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           }
         ];
@@ -229,32 +274,32 @@ export interface Database {
       conversation_history: {
         Row: {
           id: string;
-          user_id: string; // Changed from userId
+          user_id: string;
           title: string;
-          messages: Json[];
+          messages: Json;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
-          user_id: string; // Changed from userId
+          user_id: string;
           title: string;
-          messages: Json[];
+          messages: Json;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
-          user_id?: string; // Changed from userId
+          user_id?: string;
           title?: string;
-          messages?: Json[];
+          messages?: Json;
           created_at?: string;
           updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "conversation_history_user_id_fkey"; // Changed from userId_fkey
-            columns: ["user_id"]; // Changed from userId
+            foreignKeyName: "conversation_history_user_id_fkey";
+            columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];
@@ -264,35 +309,38 @@ export interface Database {
       user_notifications: {
         Row: {
           id: string;
-          user_id: string; // Changed from userId
+          user_id: string;
           title: string;
           message: string;
-          read: boolean;
           type: string;
+          read: boolean;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
-          user_id: string; // Changed from userId
+          user_id: string;
           title: string;
           message: string;
-          read?: boolean;
           type: string;
+          read?: boolean;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
-          user_id?: string; // Changed from userId
+          user_id?: string;
           title?: string;
           message?: string;
-          read?: boolean;
           type?: string;
+          read?: boolean;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "user_notifications_user_id_fkey"; // Changed from userId_fkey
-            columns: ["user_id"]; // Changed from userId
+            foreignKeyName: "user_notifications_user_id_fkey";
+            columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];

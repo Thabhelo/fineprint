@@ -3,13 +3,7 @@ import { motion } from 'framer-motion';
 import { BarChart, LineChart, PieChart, Activity } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
-
-interface Contract {
-  id: string;
-  title: string;
-  risk_level: 'low' | 'medium' | 'high';
-  created_at: string;
-}
+import type { Contract } from '../types';
 
 export default function Analytics() {
   const [stats, setStats] = useState<any>(null);
@@ -19,15 +13,23 @@ export default function Analytics() {
     loadAnalytics();
   }, []);
 
-  async function loadAnalytics() {
+  const loadAnalytics = async () => {
     try {
-      const { data: usageStats, error: usageError } = await supabase
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) {
+        throw new Error('Not authenticated');
+      }
+
+      // Get usage stats
+      const { data: usageStats, error: statsError } = await supabase
         .from('usage_stats')
         .select('*')
+        .eq('user_id', user.data.user.id)
         .single();
 
-      if (usageError) throw usageError;
+      if (statsError) throw statsError;
 
+      // Get contracts with analysis results
       const { data: contracts, error: contractsError } = await supabase
         .from('contracts')
         .select(`
@@ -36,15 +38,17 @@ export default function Analytics() {
             risk_level
           )
         `)
+        .eq('user_id', user.data.user.id)
         .order('created_at', { ascending: false });
 
       if (contractsError) throw contractsError;
 
-      // Process contracts data for charts
+      // Calculate risk level distribution
       const riskLevels = contracts?.reduce((acc: Record<string, number>, contract: Contract) => {
-        acc[contract.risk_level] = (acc[contract.risk_level] || 0) + 1;
+        const riskLevel = contract.analysis_results?.[0]?.risk_level || 'unknown';
+        acc[riskLevel] = (acc[riskLevel] || 0) + 1;
         return acc;
-      }, {}) || {};
+      }, {});
 
       setStats({
         usage: usageStats,
@@ -56,7 +60,7 @@ export default function Analytics() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   if (loading) {
     return (

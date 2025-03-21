@@ -1,42 +1,34 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './database.types';
-
+import type { Database, Json } from './database.types';
 import { sendAnalysisEmail } from './email';
+import type { GroqMessage } from './groq';
+
+// Add missing types
+export interface GroqCompatible {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
 
 // Load Supabase credentials
-const SUPABASE_URL = 'https://quqzfvucxdvlqvnjnwkn.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1cXpmdnVjeGR2bHF2bmpud2tuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzMDk4OTEsImV4cCI6MjA1Nzg4NTg5MX0.VHJQ_esE8FwJ54eeg_nUelxvB4Sy9vctnouVaThQip0';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables');
+}
 
 // Debug log for environment variables
 console.log('Supabase Config Check:');
-console.log('- URL exists:', !!SUPABASE_URL);
-console.log('- Key exists:', !!SUPABASE_ANON_KEY);
-console.log('- URL preview:', SUPABASE_URL ? `${SUPABASE_URL.substring(0, 20)}...` : 'missing');
-console.log('- Key preview:', SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 10)}...` : 'missing');
+console.log('- URL exists:', !!supabaseUrl);
+console.log('- Key exists:', !!supabaseAnonKey);
+console.log('- URL preview:', supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'missing');
+console.log('- Key preview:', supabaseAnonKey ? `${supabaseAnonKey.substring(0, 10)}...` : 'missing');
 
 // Export isConfigured check for reuse
-export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
-// Create a typed Supabase client - only if configuration exists
-export const supabase = isSupabaseConfigured 
-  ? createClient<Database>(
-      SUPABASE_URL!,
-      SUPABASE_ANON_KEY!,
-      {
-        auth: { 
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true
-        },
-      }
-    )
-  : createClient<Database>(
-      'https://placeholder-url.supabase.co',
-      'placeholder-key',
-      {
-        auth: { persistSession: true },
-      }
-    );
+// Initialize Supabase client
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
 // Test Supabase connection on initialization (only if configured)
 if (isSupabaseConfigured) {
@@ -75,32 +67,20 @@ export type UserProfile = Database['public']['Tables']['user_profiles']['Row'];
 
 /** 🔹 Save a conversation */
 export async function saveConversation(title: string, messages: GroqMessage[]) {
-  if (!isSupabaseConfigured) {
-    throw new Error('Supabase not configured');
+  const user = await supabase.auth.getUser();
+  if (!user.data.user) {
+    throw new Error('Not authenticated');
   }
-  
-  try {
-    const user = await getUser();
 
-    // Cast messages to be Json compatible
-    const jsonMessages = messages as unknown as GroqCompatible[];
+  const { error } = await supabase
+    .from('conversation_history')
+    .insert({
+      user_id: user.data.user.id,
+      title,
+      messages: messages as unknown as Json[]
+    });
 
-    const { data, error } = await supabase
-      .from('conversation_history')
-      .insert({
-        user_id: user.id,
-        title: title || (messages.length ? messages[0]?.content.slice(0, 50) + '...' : 'Untitled Conversation'),
-        messages: jsonMessages
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('⚠️ Error saving conversation:', error);
-    throw error;
-  }
+  if (error) throw error;
 }
 
 /** 🔹 Get recent conversations */
