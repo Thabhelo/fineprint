@@ -4,15 +4,7 @@ import { User, Mail, Building, Briefcase, Camera, Bell, Lock, Shield, CreditCard
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
-
-interface UserProfile {
-  id: string;
-  user_id: string;
-  full_name: string;
-  company: string;
-  role: string;
-  avatar_url: string;
-}
+import type { UserProfile } from '../types';
 
 interface UserSettings {
   email_notifications: boolean;
@@ -30,17 +22,23 @@ export default function Profile() {
   });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications' | 'billing'>('profile');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadProfile();
   }, []);
 
-  async function loadProfile() {
+  const loadProfile = async () => {
     try {
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) {
+        throw new Error('Not authenticated');
+      }
+
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.data.user.id)
         .single();
 
       if (error) throw error;
@@ -51,23 +49,33 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!profile) return;
+
+    setSaving(true);
     try {
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) {
+        throw new Error('Not authenticated');
+      }
+
       const { error } = await supabase
         .from('user_profiles')
         .update(profile)
-        .eq('user_id', user?.id);
+        .eq('user_id', user.data.user.id);
 
       if (error) throw error;
       toast.success('Profile updated successfully');
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error('Failed to update profile');
+    } finally {
+      setSaving(false);
     }
-  }
+  };
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

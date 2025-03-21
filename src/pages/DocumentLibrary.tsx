@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { analyzeContract, supabase } from "../lib/supabase";
 import { format } from "date-fns";
+import type { Contract } from "../types";
 
 const DEFAULT_DOCUMENTS: Document[] = [
   {
@@ -58,18 +59,6 @@ interface Document {
   file_path?: string;
 }
 
-interface Contract {
-  id: string;
-  title: string;
-  content: string;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-  url: string | null;
-  file_path: string | null;
-  analysis_results: { risk_level: string }[];
-}
-
 interface DocumentStats {
   totalDocuments: number;
   highRiskCount: number;
@@ -93,22 +82,32 @@ export default function DocumentLibrary() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchContracts();
+    loadContracts();
   }, []);
 
-  const fetchContracts = async () => {
+  const loadContracts = async () => {
     try {
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) {
+        throw new Error('Not authenticated');
+      }
+
       const { data, error } = await supabase
         .from('contracts')
-        .select('*')
+        .select(`
+          *,
+          analysis_results (
+            risk_level
+          )
+        `)
+        .eq('user_id', user.data.user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setContracts(data || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch contracts');
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Error loading contracts:', error);
+      toast.error('Failed to load contracts');
     }
   };
 

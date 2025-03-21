@@ -5,6 +5,7 @@ import { FileText, AlertTriangle, Download, Share2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { exportPDF } from '../lib/api';
 import { toast } from 'sonner';
+import type { Contract } from '../types';
 
 interface Issue {
   id: string;
@@ -13,31 +14,73 @@ interface Issue {
   created_at: string;
 }
 
+interface AnalysisResult {
+  id: string;
+  risk_level: string;
+  created_at: string;
+  updated_at: string;
+  analysis_issues?: Issue[];
+}
+
+interface ContractWithIssues extends Omit<Contract, 'analysis_results'> {
+  analysis_results: AnalysisResult[];
+}
+
 export default function ContractDetail() {
   const { id } = useParams<{ id: string }>();
-  const [contract, setContract] = useState<any>(null);
+  const [contract, setContract] = useState<ContractWithIssues | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadContract();
+    if (id) {
+      loadContract();
+    }
   }, [id]);
 
   async function loadContract() {
+    if (!id) return;
+
     try {
       const { data, error } = await supabase
         .from('contracts')
         .select(`
           *,
           analysis_results (
-            *,
-            analysis_issues (*)
+            id,
+            risk_level,
+            created_at,
+            updated_at
           )
         `)
         .eq('id', id)
         .single();
 
       if (error) throw error;
-      setContract(data);
+
+      // Get analysis issues separately
+      if (data?.analysis_results?.length > 0) {
+        const { data: issues, error: issuesError } = await supabase
+          .from('analysis_issues')
+          .select('*')
+          .eq('analysis_id', data.analysis_results[0].id);
+
+        if (issuesError) throw issuesError;
+
+        // Attach issues to the analysis result
+        const contractWithIssues = {
+          ...data,
+          analysis_results: [
+            {
+              ...data.analysis_results[0],
+              analysis_issues: issues || []
+            }
+          ]
+        } as ContractWithIssues;
+
+        setContract(contractWithIssues);
+      } else {
+        setContract(data as ContractWithIssues);
+      }
     } catch (error) {
       console.error('Error loading contract:', error);
       toast.error('Failed to load contract details');
