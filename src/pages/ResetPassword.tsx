@@ -1,43 +1,59 @@
-import React, { useState } from "react";
-import { motion } from "framer-motion";
-import { LogIn, AlertTriangle } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import { toast } from "sonner";
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Key, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
-export default function SignIn() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export default function ResetPassword() {
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, isSupabaseConfigured } = useAuth();
+  const [validResetLink, setValidResetLink] = useState<boolean | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data.session) {
+        setValidResetLink(false);
+      } else {
+        setValidResetLink(true);
+      }
+    };
+
+    checkSession();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!email || !password) {
-      toast.error("Please fill in all fields");
+    
+    if (!password) {
+      toast.error('Please enter a new password');
       return;
     }
-    setLoading(true);
+
+    if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      toast.error('Password must be at least 8 characters long and include a number and uppercase letter');
+      return;
+    }
 
     try {
-      await signIn(email, password);
-      toast.success("Successfully signed in!");
-      navigate("/get-started");
+      setLoading(true);
+      const { error } = await supabase.auth.updateUser({ password });
+      
+      if (error) throw error;
+      
+      toast.success('Password updated successfully!');
+      navigate('/signin');
     } catch (error: any) {
-      console.error("Error signing in:", error);
-      if (error.message === "Invalid login credentials") {
-        toast.error("Invalid email or password. Please try again.");
-      } else {
-        toast.error(error.message || "Failed to sign in. Please try again.");
-      }
+      console.error('Error resetting password:', error);
+      toast.error(error.message || 'Failed to reset password. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isSupabaseConfigured) {
+  if (validResetLink === false) {
     return (
       <div className="min-h-screen pt-20 bg-gradient-to-b from-white to-indigo-50">
         <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -49,13 +65,16 @@ export default function SignIn() {
           >
             <div className="text-center mb-8">
               <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-gray-900">
-                Authentication Not Configured
-              </h1>
+              <h1 className="text-2xl font-bold text-gray-900">Invalid or Expired Link</h1>
               <p className="mt-2 text-gray-600">
-                Please check your environment variables for Supabase
-                configuration.
+                This password reset link is invalid or has expired. Please request a new one.
               </p>
+              <button
+                onClick={() => navigate('/signin')}
+                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              >
+                Back to Sign In
+              </button>
             </div>
           </motion.div>
         </div>
@@ -73,33 +92,14 @@ export default function SignIn() {
           transition={{ duration: 0.5 }}
         >
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Welcome Back</h1>
-            <p className="mt-2 text-gray-600">Sign in to your account</p>
+            <h1 className="text-3xl font-bold text-gray-900">Reset Password</h1>
+            <p className="mt-2 text-gray-600">Enter your new password below</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                required
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Password
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                New Password
               </label>
               <input
                 type="password"
@@ -108,7 +108,11 @@ export default function SignIn() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 required
+                minLength={8}
               />
+              <p className="mt-1 text-sm text-gray-500">
+                Must be at least 8 characters with at least one number and one uppercase letter
+              </p>
             </div>
             <button
               type="submit"
@@ -119,22 +123,12 @@ export default function SignIn() {
                 <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
               ) : (
                 <>
-                  Sign In
-                  <LogIn className="ml-2 h-5 w-5" />
+                  Reset Password
+                  <Key className="ml-2 h-5 w-5" />
                 </>
               )}
             </button>
           </form>
-
-          <p className="mt-4 text-center text-sm text-gray-600">
-            Don't have an account?{" "}
-            <Link
-              to="/signup"
-              className="text-indigo-600 hover:text-indigo-500"
-            >
-              Sign up
-            </Link>
-          </p>
         </motion.div>
       </div>
     </div>

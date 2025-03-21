@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Bot, User, ExternalLink, Book, Scale, Gavel } from 'lucide-react';
 import { sendMessageToGroq } from '../lib/groq';

@@ -1,9 +1,13 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  adminOnly?: boolean;
+}
+
+export default function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
+  const { role, loading } = useAuth();
 
   if (loading) {
     return (
@@ -12,10 +16,28 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
       </div>
     );
   }
-
-  if (!user) {
-    return <Navigate to="/get-started" />;
+  
+  // For admin-only routes, check role but don't block completely
+  if (adminOnly && role !== 'admin') {
+    return (
+      <div className="min-h-screen pt-20 px-4">
+        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md p-8 mt-8">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Admin Access Required</h1>
+          <p className="text-gray-700 mb-6">
+            This section requires administrative privileges. If you believe you should have access,
+            please contact support.
+          </p>
+          <a 
+            href="/" 
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Return to Home
+          </a>
+        </div>
+      </div>
+    );
   }
 
+  // User is authenticated and authorized, render the protected component
   return <>{children}</>;
 }
