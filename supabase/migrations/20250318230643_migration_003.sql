@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS public.user_settings (
   user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   email_notifications BOOLEAN DEFAULT true,
   notification_frequency TEXT DEFAULT 'daily',
+  theme TEXT DEFAULT 'light',
+  language TEXT DEFAULT 'en',
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
