@@ -1,38 +1,49 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { FileText, Search, Filter, Upload, Download, Share2, Tags, AlertTriangle, CheckCircle, Folder } from 'lucide-react';
-import { toast } from 'sonner'; 
-import { analyzeContract, supabase } from '../lib/supabase';
-import { format } from 'date-fns';
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import {
+  FileText,
+  Search,
+  Filter,
+  Upload,
+  Download,
+  Share2,
+  Tags,
+  AlertTriangle,
+  CheckCircle,
+  Folder,
+} from "lucide-react";
+import { toast } from "sonner";
+import { analyzeContract, supabase } from "../lib/supabase";
+import { format } from "date-fns";
 
-const DEFAULT_DOCUMENTS = [
+const DEFAULT_DOCUMENTS: Document[] = [
   {
-    id: '1',
-    title: 'Standard Employment Agreement',
-    category: 'Employment',
-    tags: ['contract', 'employment', 'template'],
+    id: "1",
+    title: "Standard Employment Agreement",
+    category: "Employment",
+    tags: ["contract", "employment", "template"],
     lastModified: new Date().toISOString(),
-    status: 'complete',
-    riskLevel: 'low'
+    status: "complete" as const,
+    riskLevel: "low" as const,
   },
   {
-    id: '2',
-    title: 'Non-Disclosure Agreement',
-    category: 'Confidentiality',
-    tags: ['NDA', 'confidentiality', 'template'],
+    id: "2",
+    title: "Non-Disclosure Agreement",
+    category: "Confidentiality",
+    tags: ["NDA", "confidentiality", "template"],
     lastModified: new Date().toISOString(),
-    status: 'complete',
-    riskLevel: 'medium'
+    status: "complete" as const,
+    riskLevel: "medium" as const,
   },
   {
-    id: '3',
-    title: 'Service Level Agreement',
-    category: 'Services',
-    tags: ['SLA', 'services', 'contract'],
+    id: "3",
+    title: "Service Level Agreement",
+    category: "Services",
+    tags: ["SLA", "services", "contract"],
     lastModified: new Date().toISOString(),
-    status: 'complete',
-    riskLevel: 'low'
-  }
+    status: "complete" as const,
+    riskLevel: "low" as const,
+  },
 ];
 
 interface Document {
@@ -41,8 +52,22 @@ interface Document {
   category: string;
   tags: string[];
   lastModified: string;
-  status?: 'analyzing' | 'complete' | 'error';
-  riskLevel?: 'low' | 'medium' | 'high';
+  status: "analyzing" | "complete" | "error";
+  riskLevel?: "low" | "medium" | "high";
+  url?: string;
+  file_path?: string;
+}
+
+interface Contract {
+  id: string;
+  title: string;
+  content: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  url: string | null;
+  file_path: string | null;
+  analysis_results: { risk_level: string }[];
 }
 
 interface DocumentStats {
@@ -53,14 +78,14 @@ interface DocumentStats {
 }
 
 export default function DocumentLibrary() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [documents, setDocuments] = useState<Document[]>([]);
   const [stats, setStats] = useState<DocumentStats>({
     totalDocuments: 0,
     highRiskCount: 0,
     categoryCount: 0,
-    analyzedCount: 0
+    analyzedCount: 0,
   });
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -72,116 +97,191 @@ export default function DocumentLibrary() {
   const loadDocuments = async () => {
     try {
       const { data: contracts, error } = await supabase
-        .from('contracts').select(`
+        .from("contracts")
+        .select(
+          `
           *,
           analysis_results (
             risk_level
           )
-        `).order('created_at', { ascending: false });
+        `
+        )
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error loading documents:', error);
+        console.error("Error loading documents:", error);
         // Use default documents if there's an error or no data
         setDocuments(DEFAULT_DOCUMENTS);
         setStats({
           totalDocuments: DEFAULT_DOCUMENTS.length,
-          highRiskCount: DEFAULT_DOCUMENTS.filter(doc => doc.riskLevel === 'high').length,
-          categoryCount: new Set(DEFAULT_DOCUMENTS.map(doc => doc.category)).size,
-          analyzedCount: DEFAULT_DOCUMENTS.filter(doc => doc.status === 'complete').length
+          highRiskCount: DEFAULT_DOCUMENTS.filter(
+            (doc) => doc.riskLevel === "high"
+          ).length,
+          categoryCount: new Set(DEFAULT_DOCUMENTS.map((doc) => doc.category))
+            .size,
+          analyzedCount: DEFAULT_DOCUMENTS.filter(
+            (doc) => doc.status === "complete"
+          ).length,
         });
         return;
       }
 
       // If we have real data, use it
-      const formattedDocs = contracts?.length ? contracts.map(contract => ({
-        id: contract.id,
-        title: contract.title,
-        category: contract.category || 'Uncategorized',
-        tags: contract.tags || [],
-        lastModified: contract.updated_at,
-        status: 'complete',
-        riskLevel: contract.analysis_results?.[0]?.risk_level || 'low'
-      })) : DEFAULT_DOCUMENTS;
+      const formattedDocs = contracts?.length
+        ? (contracts as Contract[]).map((contract) => ({
+            id: contract.id,
+            title: contract.title,
+            category: "Uncategorized", // Default category
+            tags: ["document"], // Default tags
+            lastModified: contract.updated_at,
+            status: "complete" as const,
+            riskLevel: (contract.analysis_results?.[0]?.risk_level || "low") as
+              | "low"
+              | "medium"
+              | "high",
+            url: contract.url || undefined,
+            file_path: contract.file_path || undefined,
+          }))
+        : DEFAULT_DOCUMENTS;
 
       setDocuments(formattedDocs);
 
       // Calculate stats
-      const uniqueCategories = new Set(formattedDocs.map(doc => doc.category));
+      const uniqueCategories = new Set(
+        formattedDocs.map((doc) => doc.category)
+      );
       setStats({
         totalDocuments: formattedDocs.length || 0,
-        highRiskCount: formattedDocs.filter(doc => doc.riskLevel === 'high').length || 0,
+        highRiskCount:
+          formattedDocs.filter((doc) => doc.riskLevel === "high").length || 0,
         categoryCount: uniqueCategories.size || 0,
-        analyzedCount: formattedDocs.filter(doc => doc.status === 'complete').length || 0
+        analyzedCount:
+          formattedDocs.filter((doc) => doc.status === "complete").length || 0,
       });
     } catch (error) {
-      console.error('Error loading documents:', error);
+      console.error("Error loading documents:", error);
       // Use default documents on error
       setDocuments(DEFAULT_DOCUMENTS);
       setStats({
         totalDocuments: DEFAULT_DOCUMENTS.length,
-        highRiskCount: DEFAULT_DOCUMENTS.filter(doc => doc.riskLevel === 'high').length,
-        categoryCount: new Set(DEFAULT_DOCUMENTS.map(doc => doc.category)).size,
-        analyzedCount: DEFAULT_DOCUMENTS.filter(doc => doc.status === 'complete').length
+        highRiskCount: DEFAULT_DOCUMENTS.filter(
+          (doc) => doc.riskLevel === "high"
+        ).length,
+        categoryCount: new Set(DEFAULT_DOCUMENTS.map((doc) => doc.category))
+          .size,
+        analyzedCount: DEFAULT_DOCUMENTS.filter(
+          (doc) => doc.status === "complete"
+        ).length,
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const categories = ['all', ...new Set(documents.length ? documents.map(doc => doc.category) : DEFAULT_DOCUMENTS.map(doc => doc.category))];
+  const categories = [
+    "all",
+    ...new Set(
+      documents.length
+        ? documents.map((doc) => doc.category)
+        : DEFAULT_DOCUMENTS.map((doc) => doc.category)
+    ),
+  ];
 
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesCategory = selectedCategory === 'all' || doc.category === selectedCategory;
+  const filteredDocuments = documents.filter((doc) => {
+    const matchesSearch =
+      doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doc.tags.some((tag) =>
+        tag.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    const matchesCategory =
+      selectedCategory === "all" || doc.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const tempDocId = Date.now().toString();
+    const tempDoc: Document = {
+      id: tempDocId,
+      title: file.name,
+      category: "Pending",
+      tags: ["new"],
+      lastModified: new Date().toISOString(),
+      status: "analyzing",
+    };
+
     try {
       setUploading(true);
-      const content = await file.text();
-      
-      // Create a temporary document entry
-      const tempDoc: Document = {
-        id: Date.now().toString(),
-        title: file.name,
-        category: 'Pending',
-        tags: ['new'],
-        lastModified: new Date().toISOString(),
-        status: 'analyzing'
-      };
-      
-      setDocuments(prev => [tempDoc, ...prev]);
+      setDocuments((prev) => [tempDoc, ...prev]);
 
-      const result = await analyzeContract(content);
-      
-      // Update the document with analysis results
-      setDocuments(prev => prev.map(doc => 
-        doc.id === tempDoc.id 
-          ? {
-              ...doc,
-              status: 'complete',
-              riskLevel: result.analysis.risk_level,
-              tags: [...doc.tags, result.analysis.risk_level]
-            }
-          : doc
-      ));
+      // Get the current user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
 
-      toast.success('Document analyzed successfully');
+      // Upload file to Supabase storage
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${tempDocId}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("contract-docs")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get the public URL for the uploaded file
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("contract-docs").getPublicUrl(filePath);
+
+      // Save document metadata to contracts table
+      const { data: contract, error: dbError } = await supabase
+        .from("contracts")
+        .insert({
+          title: file.name,
+          user_id: user.id,
+          url: publicUrl,
+          file_path: filePath,
+          content: "", // Empty content since we're storing the file separately
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      // Update the document with success state
+      setDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === tempDocId
+            ? {
+                ...doc,
+                status: "complete",
+                riskLevel: "low",
+                tags: [...doc.tags, "low"],
+                url: publicUrl,
+                file_path: filePath,
+              }
+            : doc
+        )
+      );
+
+      toast.success("Document uploaded successfully");
     } catch (error) {
-      console.error('Error analyzing document:', error);
-      toast.error('Failed to analyze document');
-      
+      console.error("Error uploading document:", error);
+      toast.error("Failed to upload document");
+
       // Update the document to show error state
-      setDocuments(prev => prev.map(doc => 
-        doc.id === Date.now().toString()
-          ? { ...doc, status: 'error' }
-          : doc
-      ));
+      setDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === tempDocId ? { ...doc, status: "error" } : doc
+        )
+      );
     } finally {
       setUploading(false);
     }
@@ -196,7 +296,9 @@ export default function DocumentLibrary() {
           transition={{ duration: 0.5 }}
         >
           <h1 className="text-3xl font-bold text-gray-900">Document Library</h1>
-          <p className="mt-2 text-gray-600">Upload and manage your legal documents</p>
+          <p className="mt-2 text-gray-600">
+            Upload and manage your legal documents
+          </p>
         </motion.div>
 
         {/* Quick Stats */}
@@ -210,8 +312,12 @@ export default function DocumentLibrary() {
             <div className="flex items-center">
               <Folder className="h-8 w-8 text-indigo-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Documents</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.totalDocuments || 0}</p>
+                <p className="text-sm font-medium text-gray-500">
+                  Total Documents
+                </p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {stats.totalDocuments || 0}
+                </p>
               </div>
             </div>
           </div>
@@ -220,7 +326,9 @@ export default function DocumentLibrary() {
               <AlertTriangle className="h-8 w-8 text-red-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">High Risk</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.highRiskCount || 0}</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {stats.highRiskCount || 0}
+                </p>
               </div>
             </div>
           </div>
@@ -229,7 +337,9 @@ export default function DocumentLibrary() {
               <Tags className="h-8 w-8 text-yellow-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Categories</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.categoryCount || 0}</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {stats.categoryCount || 0}
+                </p>
               </div>
             </div>
           </div>
@@ -238,7 +348,9 @@ export default function DocumentLibrary() {
               <CheckCircle className="h-8 w-8 text-green-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Analyzed</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.analyzedCount || 0}</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {stats.analyzedCount || 0}
+                </p>
               </div>
             </div>
           </div>
@@ -253,7 +365,9 @@ export default function DocumentLibrary() {
         >
           <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
             <Upload className="mx-auto h-12 w-12 text-gray-400" />
-            <p className="mt-2 text-gray-600">Drag and drop your contract here, or</p>
+            <p className="mt-2 text-gray-600">
+              Drag and drop your contract here, or
+            </p>
             <label className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:shadow-lg transition-all duration-300 cursor-pointer">
               Browse Files
               <input
@@ -285,7 +399,7 @@ export default function DocumentLibrary() {
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
             >
-              {categories.map(category => (
+              {categories.map((category) => (
                 <option key={category} value={category}>
                   {category.charAt(0).toUpperCase() + category.slice(1)}
                 </option>
@@ -308,19 +422,21 @@ export default function DocumentLibrary() {
                 <div className="flex items-center">
                   <FileText className="h-8 w-8 text-indigo-600" />
                   <div className="ml-3">
-                    <h3 className="text-lg font-semibold text-gray-900">{doc.title}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {doc.title}
+                    </h3>
                     <p className="text-sm text-gray-500">{doc.category}</p>
                   </div>
                 </div>
-                {doc.status === 'analyzing' ? (
+                {doc.status === "analyzing" ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-indigo-600" />
-                ) : doc.status === 'complete' ? (
+                ) : doc.status === "complete" ? (
                   <CheckCircle className="h-5 w-5 text-green-500" />
-                ) : doc.status === 'error' ? (
+                ) : doc.status === "error" ? (
                   <AlertTriangle className="h-5 w-5 text-red-500" />
                 ) : null}
               </div>
-              
+
               <div className="mt-4 flex flex-wrap gap-2">
                 {doc.tags.map((tag, index) => (
                   <span
@@ -334,11 +450,15 @@ export default function DocumentLibrary() {
 
               {doc.riskLevel && (
                 <div className="mt-4">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    doc.riskLevel === 'high' ? 'bg-red-100 text-red-800' :
-                    doc.riskLevel === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      doc.riskLevel === "high"
+                        ? "bg-red-100 text-red-800"
+                        : doc.riskLevel === "medium"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-green-100 text-green-800"
+                    }`}
+                  >
                     {doc.riskLevel.toUpperCase()} RISK
                   </span>
                 </div>
@@ -346,7 +466,7 @@ export default function DocumentLibrary() {
 
               <div className="mt-6 flex justify-between items-center">
                 <span className="text-sm text-gray-500">
-                  Modified: {format(new Date(doc.lastModified), 'PPP')}
+                  Modified: {format(new Date(doc.lastModified), "PPP")}
                 </span>
                 <div className="flex space-x-2">
                   <button className="p-2 text-gray-600 hover:text-indigo-600 transition-colors">
