@@ -74,12 +74,18 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
+// Add more API routes here
+
 // Serve static files from the dist directory
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Handle client-side routing - serve index.html for all routes
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+// Handle client-side routing - serve index.html for all non-API routes
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    next();
+  } else {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  }
 });
 
 const PORT = process.env.PORT || 3000;
