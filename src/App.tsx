@@ -25,6 +25,7 @@ import Careers from './pages/Careers';
 import Press from './pages/Press';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
+import { Analytics as VercelAnalytics } from "@vercel/analytics/react"
 
 function App() {
   return (
@@ -104,6 +105,7 @@ function App() {
           </Routes>
           <Footer />
           <Toaster position="top-right" />
+          <VercelAnalytics />
         </div>
       </AuthProvider>
     </Router>
