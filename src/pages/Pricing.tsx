@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 // Load Stripe publishable key from environment variables
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -59,6 +60,7 @@ const tiers: Tier[] = [
 export default function Pricing() {
   const [subscriptionPeriod, setSubscriptionPeriod] = useState<'monthly' | 'yearly'>('yearly');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   // Toggle monthly or yearly
   const handleToggle = (period: 'monthly' | 'yearly') => {
@@ -66,15 +68,27 @@ export default function Pricing() {
   };
 
   // Handle subscription logic for each tier
-  const handleSubscribe = async (tierName: 'basic' | 'pro' | 'enterprise') => {
+  const handleSubscribe = async (tierName: string) => {
+    // Handle Enterprise tier
+    if (tierName === 'Enterprise') {
+      navigate('/contact');
+      return;
+    }
+
+    // Only handle Premium tier with Stripe
+    if (tierName !== 'Premium') {
+      return;
+    }
+
     try {
+      setLoading(true);
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          tier: tierName,
+          plan: subscriptionPeriod
         }),
       });
 
@@ -83,14 +97,15 @@ export default function Pricing() {
       }
 
       const { sessionId } = await response.json();
-      const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+      const stripe = await stripePromise;
 
       if (!stripe) {
         throw new Error('Failed to load Stripe');
       }
 
+      // Redirect to Stripe checkout
       const { error } = await stripe.redirectToCheckout({
-        sessionId,
+        sessionId
       });
 
       if (error) {
@@ -99,6 +114,8 @@ export default function Pricing() {
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to start subscription process');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -180,7 +197,7 @@ export default function Pricing() {
                     <button
                     type="button"
                     onClick={async () => {
-                      await handleSubscribe(tier.name as 'basic' | 'pro' | 'enterprise');
+                      await handleSubscribe(tier.name);
                     }}
                     disabled={loading}
                     className={`mt-8 block w-full py-2 px-4 border border-transparent rounded-md text-center font-medium ${
