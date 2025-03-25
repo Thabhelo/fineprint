@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 // Load Stripe publishable key from environment variables
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -59,6 +60,7 @@ const tiers: Tier[] = [
 export default function Pricing() {
   const [subscriptionPeriod, setSubscriptionPeriod] = useState<'monthly' | 'yearly'>('yearly');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   // Toggle monthly or yearly
   const handleToggle = (period: 'monthly' | 'yearly') => {
@@ -67,12 +69,14 @@ export default function Pricing() {
 
   // Handle subscription logic for each tier
   const handleSubscribe = async (tierName: string) => {
+    // Handle Enterprise tier
+    if (tierName === 'Enterprise') {
+      navigate('/contact');
+      return;
+    }
+
     // Only handle Premium tier with Stripe
     if (tierName !== 'Premium') {
-      if (tierName === 'Enterprise') {
-        // Enterprise tier should redirect to contact form
-        toast.info('Please contact sales for Enterprise pricing');
-      }
       return;
     }
 
