@@ -103,13 +103,8 @@ export default function Pricing() {
         throw new Error('Failed to load Stripe');
       }
 
-      const { error } = await stripe.redirectToCheckout({
-        sessionId,
-      });
-
-      if (error) {
-        throw error;
-      }
+      // Open checkout in a new tab
+      window.open(`https://checkout.stripe.com/c/pay/${sessionId}`, '_blank');
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to start subscription process');
