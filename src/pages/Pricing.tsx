@@ -103,12 +103,17 @@ export default function Pricing() {
         throw new Error('Failed to load Stripe');
       }
 
-      // Redirect to Stripe checkout
+      // Open a new tab first
+      const newWindow = window.open('', '_blank');
+      
+      // Redirect the new tab to Stripe checkout
       const { error } = await stripe.redirectToCheckout({
-        sessionId
+        sessionId,
       });
 
+      // If there's an error, close the new tab
       if (error) {
+        newWindow?.close();
         throw error;
       }
     } catch (error) {
