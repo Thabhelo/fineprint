@@ -66,15 +66,25 @@ export default function Pricing() {
   };
 
   // Handle subscription logic for each tier
-  const handleSubscribe = async (tierName: 'basic' | 'pro' | 'enterprise') => {
+  const handleSubscribe = async (tierName: string) => {
+    // Only handle Premium tier with Stripe
+    if (tierName !== 'Premium') {
+      if (tierName === 'Enterprise') {
+        // Enterprise tier should redirect to contact form
+        toast.info('Please contact sales for Enterprise pricing');
+      }
+      return;
+    }
+
     try {
+      setLoading(true);
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          tier: tierName,
+          plan: subscriptionPeriod
         }),
       });
 
@@ -83,7 +93,7 @@ export default function Pricing() {
       }
 
       const { sessionId } = await response.json();
-      const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+      const stripe = await stripePromise;
 
       if (!stripe) {
         throw new Error('Failed to load Stripe');
@@ -99,6 +109,8 @@ export default function Pricing() {
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to start subscription process');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -180,7 +192,7 @@ export default function Pricing() {
                     <button
                     type="button"
                     onClick={async () => {
-                      await handleSubscribe(tier.name as 'basic' | 'pro' | 'enterprise');
+                      await handleSubscribe(tier.name);
                     }}
                     disabled={loading}
                     className={`mt-8 block w-full py-2 px-4 border border-transparent rounded-md text-center font-medium ${
