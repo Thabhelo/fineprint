@@ -3,8 +3,15 @@
   "name": "FinePrint - Contract Analyzer",
   "version": "1.0",
   "description": "AI-powered contract analysis and consumer protection",
-  "permissions": ["activeTab", "storage", "scripting"],
-  "host_permissions": ["https://*/*", "http://*/*"],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -23,7 +30,15 @@
     "run_at": "document_end"
   }],
   "web_accessible_resources": [{
-    "resources": ["assets/*", "styles/*"],
+    "resources": [
+      "assets/*",
+      "styles/*"
+    ],
     "matches": ["https://*/*", "http://*/*"]
-  }]
+  }],
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
 }
