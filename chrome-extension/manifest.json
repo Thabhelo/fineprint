@@ -1,44 +1,51 @@
 {
   "manifest_version": 3,
-  "name": "FinePrint - Contract Analyzer",
-  "version": "1.0",
+  "name": "Fineprint",
+  "version": "1.0.0",
   "description": "AI-powered contract analysis and consumer protection",
   "permissions": [
     "activeTab",
-    "storage",
-    "scripting"
+    "scripting",
+    "storage"
   ],
   "host_permissions": [
-    "https://*/*",
-    "http://*/*"
+    "*://*/*"
   ],
-  "background": {
-    "service_worker": "background.js"
-  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "assets/icon16.png",
-      "48": "assets/icon48.png",
-      "128": "assets/icon128.png"
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
     }
   },
-  "content_scripts": [{
-    "matches": ["https://*/*", "http://*/*"],
-    "js": ["content.js"],
-    "css": ["styles/content.css"],
-    "run_at": "document_end"
-  }],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["styles/content.css"],
+      "js": [
+        "lib/react.production.min.js",
+        "lib/react-dom.production.min.js",
+        "lib/styled-components.min.js",
+        "content.js"
+      ]
+    }
+  ],
   "web_accessible_resources": [{
     "resources": [
       "assets/*",
-      "styles/*"
+      "styles/*",
+      "lib/*"
     ],
-    "matches": ["https://*/*", "http://*/*"]
+    "matches": ["<all_urls>"]
   }],
   "icons": {
-    "16": "assets/icon16.png",
-    "48": "assets/icon48.png",
-    "128": "assets/icon128.png"
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   }
 }
