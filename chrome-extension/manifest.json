@@ -30,7 +30,9 @@
       "js": [
         "lib/react.production.min.js",
         "lib/react-dom.production.min.js",
+        "lib/react-is.production.min.js",
         "lib/styled-components.min.js",
+        "lib/react-is-setup.js",
         "content.js"
       ]
     }

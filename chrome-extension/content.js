@@ -2,7 +2,8 @@
 function waitForLibraries() {
   return new Promise((resolve) => {
     const checkLibraries = () => {
-      if (window.React && window.ReactDOM && window.styled) {
+      // Check if all required libraries are loaded
+      if (window.React && window.ReactDOM && window.styled && window.ReactIs) {
         resolve();
       } else {
         setTimeout(checkLibraries, 100);
@@ -14,7 +15,7 @@ function waitForLibraries() {
 
 // Create styled components
 function createStyledComponents() {
-  const styled = window.styled.default;
+  const styled = window.styled;
 
   const FABContainer = styled.div`
     position: fixed;
@@ -328,7 +329,7 @@ function showAnalysisResults(analysis) {
         <button class="fineprint-button" onclick="window.open('${generateReport(analysis)}', '_blank')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
+    </svg>
           Download Report
         </button>
         <button class="fineprint-modal-close" onclick="this.closest('.fineprint-modal').remove()">×</button>
@@ -349,53 +350,270 @@ function showAnalysisResults(analysis) {
           <p class="fineprint-red-flag-recommendation">${flag.recommendation}</p>
         </div>
       `).join('')}
-    </div>
-  `;
+  </div>
+`;
 
   shadowRoot.appendChild(modal);
 }
 
-// Initialize the app
+function createFallbackStyleElements() {
+  console.log("Using fallback styling mechanism");
+  
+  // Add fallback styles
+  const style = document.createElement('style');
+  style.textContent = `
+    #fineprint-fab {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 9999;
+    }
+    
+    #fineprint-button {
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease-in-out;
+    }
+    
+    #fineprint-button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+    }
+    
+    #fineprint-tooltip {
+      position: absolute;
+      right: 70px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      display: none;
+      align-items: center;
+      gap: 12px;
+      white-space: nowrap;
+    }
+    
+    #fineprint-button:hover + #fineprint-tooltip {
+      display: flex;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  return true;
+}
+
 async function initializeApp() {
   try {
-    // Create container and shadow DOM
-    const container = document.createElement('div');
-    container.id = 'fineprint-root';
-    document.body.appendChild(container);
-
-    const shadowRoot = container.attachShadow({ mode: 'open' });
-    
-    // Add styles
-    const style = document.createElement('style');
-    style.textContent = `
-      #fineprint-fab {
-        position: fixed;
-        right: 20px;
-        bottom: 20px;
-        z-index: 9999;
+    // Try to initialize with styled-components
+    try {
+      await waitForLibraries();
+      console.log("Libraries loaded, initializing app...");
+      
+      // Make sure styled is properly initialized
+      if (!window.styled) {
+        throw new Error("styled-components not properly loaded");
       }
-    `;
-    shadowRoot.appendChild(style);
-
-    // Create FAB container
-    const fabContainer = document.createElement('div');
-    fabContainer.id = 'fineprint-fab';
-    shadowRoot.appendChild(fabContainer);
-
-    // Wait for libraries to load
-    await waitForLibraries();
-
-    // Create components
-    const styledComponents = createStyledComponents();
-    const FloatingActionButton = createFloatingActionButton(styledComponents);
-
-    // Mount React component
-    const root = window.ReactDOM.createRoot(fabContainer);
-    root.render(window.React.createElement(FloatingActionButton, { onAnalyze: analyzePage }));
+      
+      addHighlightStyles();
+      
+      const appContainer = document.createElement('div');
+      appContainer.id = 'fineprint-extension-container';
+      document.body.appendChild(appContainer);
+      
+      const styledComponents = createStyledComponents();
+      const FloatingActionButton = createFloatingActionButton(styledComponents);
+      
+      const App = () => {
+        return window.React.createElement(FloatingActionButton, {
+          onAnalyze: analyzePage
+        });
+      };
+      
+      window.ReactDOM.render(
+        window.React.createElement(App),
+        document.getElementById('fineprint-extension-container')
+      );
+    } catch (styledError) {
+      // Fallback to basic HTML/CSS if styled-components fails
+      console.error("Error initializing with styled-components:", styledError);
+      console.log("Attempting fallback initialization...");
+      
+      createFallbackStyleElements();
+      addHighlightStyles();
+      
+      // Create basic elements
+      const fabContainer = document.createElement('div');
+      fabContainer.id = 'fineprint-fab';
+      document.body.appendChild(fabContainer);
+      
+      const fabButton = document.createElement('button');
+      fabButton.id = 'fineprint-button';
+      fabButton.innerHTML = `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+      `;
+      fabButton.addEventListener('click', analyzePage);
+      fabContainer.appendChild(fabButton);
+      
+      const fabTooltip = document.createElement('div');
+      fabTooltip.id = 'fineprint-tooltip';
+      fabTooltip.textContent = 'Analyze this contract with Fineprint';
+      fabContainer.appendChild(fabTooltip);
+    }
   } catch (error) {
-    console.error('Error initializing app:', error);
+    console.error("Error initializing Fineprint extension:", error);
   }
 }
 
-// Start initialization
+// Initialize the app
 initializeApp();
+
+// Add CSS for highlights
+function addHighlightStyles() {
+  if (!document.querySelector('#fineprint-highlight-styles')) {
+    const style = document.createElement('style');
+    style.id = 'fineprint-highlight-styles';
+    style.textContent = `
+      .fineprint-highlight {
+        cursor: pointer;
+        transition: background-color 0.3s;
+        padding: 2px 0;
+        border-radius: 2px;
+      }
+      .fineprint-high {
+        background-color: rgba(239, 68, 68, 0.2) !important;
+        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+      }
+      .fineprint-medium {
+        background-color: rgba(245, 158, 11, 0.2) !important;
+        box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+      }
+      .fineprint-low {
+        background-color: rgba(34, 197, 94, 0.2) !important;
+        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+function highlightRedFlags(redFlags) {
+  console.log('Highlighting red flags:', redFlags);
+  
+  // Add highlight styles
+  addHighlightStyles();
+  
+  // Remove existing highlights
+  const existingHighlights = document.querySelectorAll('.fineprint-highlight');
+  existingHighlights.forEach(el => {
+    const parent = el.parentNode;
+    parent.replaceChild(document.createTextNode(el.textContent), el);
+  });
+
+  // Process each flag
+  redFlags.forEach(flag => {
+    try {
+      // Skip empty text
+      if (!flag.text) return;
+      
+      // Clean up the text for matching (remove ellipses and trim)
+      let cleanText = flag.text.replace(/^\.\.\./, '').replace(/\.\.\.$/, '').trim();
+      
+      // For very short texts, try to find more precise matches
+      if (cleanText.length < 20) {
+        cleanText = cleanText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      } else {
+        // For longer texts, use a substring approach for better matching
+        // Take a reasonable chunk from the middle to avoid ellipses issues
+        const words = cleanText.split(/\s+/);
+        if (words.length > 5) {
+          cleanText = words.slice(1, Math.min(8, words.length - 1)).join(' ');
+        }
+        cleanText = cleanText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+      
+      // Use a text walker to find matches in visible text
+      const walker = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode: (node) => {
+            // Skip if already highlighted or hidden
+            if (node.parentElement && (
+                node.parentElement.classList.contains('fineprint-highlight') ||
+                node.parentElement.closest('.fineprint-highlight')
+            )) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            
+            // Skip if empty or just whitespace
+            if (!node.textContent.trim()) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            
+            // Skip if hidden
+            const style = window.getComputedStyle(node.parentElement);
+            if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+              return NodeFilter.FILTER_REJECT;
+            }
+            
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        },
+        false
+      );
+      
+      let node;
+      let regex = new RegExp(cleanText, 'i');
+      
+      while (node = walker.nextNode()) {
+        if (node.textContent && regex.test(node.textContent)) {
+          // Create a highlight span
+          const span = document.createElement('span');
+          span.className = `fineprint-highlight fineprint-${flag.severity}`;
+          span.textContent = node.textContent;
+          span.title = `${flag.category}: ${flag.description}`;
+          span.dataset.flagId = flag.category.toLowerCase().replace(/\s+/g, '-');
+          
+          // Replace the text node with our highlight span
+          node.parentNode.replaceChild(span, node);
+          
+          // Add click handler to flash and show details
+          span.addEventListener('click', () => {
+            span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Flash effect
+            const originalBackground = span.style.backgroundColor;
+            span.style.backgroundColor = span.classList.contains('fineprint-high') 
+              ? 'rgba(239, 68, 68, 0.4)' 
+              : span.classList.contains('fineprint-medium')
+                ? 'rgba(245, 158, 11, 0.4)'
+                : 'rgba(34, 197, 94, 0.4)';
+            
+            setTimeout(() => {
+              span.style.backgroundColor = originalBackground;
+            }, 600);
+          });
+          
+          break; // Only highlight one instance per flag
+        }
+      }
+    } catch (error) {
+      console.error('Error highlighting flag:', error, flag);
+    }
+  });
+  
+  console.log('Highlighting complete');
+}
