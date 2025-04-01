@@ -171,10 +171,10 @@ export default function Privacy() {
             <p className="font-medium text-gray-900">Privacy Team</p>
             <p className="text-gray-600">FinePrint, Inc.</p>
             <a
-              href="mailto:privacy@fineprint-ai.com"
+              href="mailto:thabheloduve@gmail.com"
               className="text-indigo-600 hover:text-indigo-500"
             >
-              privacy@fineprint-ai.com
+              privacy@fineprint.it.com | thabheloduve@gmail.com
             </a>
           </div>
         </motion.div>
