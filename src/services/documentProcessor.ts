@@ -79,20 +79,27 @@ export class DocumentProcessor {
   private async processPDF(
     file: File
   ): Promise<{ text: string; pageCount: number }> {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let text = "";
+    try {
+      const arrayBuffer = await file.arrayBuffer();
 
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      text += textContent.items.map((item: any) => item.str).join(" ") + "\n";
+      // The worker should already be initialized in pdf-worker.ts
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let text = "";
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        text += textContent.items.map((item: any) => item.str).join(" ") + "\n";
+      }
+
+      return {
+        text,
+        pageCount: pdf.numPages,
+      };
+    } catch (error) {
+      console.error("Error processing PDF:", error);
+      throw error;
     }
-
-    return {
-      text,
-      pageCount: pdf.numPages,
-    };
   }
 
   private async processDOCX(file: File): Promise<string> {
