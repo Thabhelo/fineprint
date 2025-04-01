@@ -22,7 +22,7 @@ import GetStarted from './pages/GetStarted';
 import About from './pages/About';
 import Blog from './pages/Blog';
 import Careers from './pages/Careers';
-import Press from './pages/Press';
+import Privacy from './pages/Privacy';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Analytics as VercelAnalytics } from "@vercel/analytics/react"
@@ -43,7 +43,7 @@ function App() {
             <Route path="/about" element={<About />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/careers" element={<Careers />} />
-            <Route path="/press" element={<Press />} />
+            <Route path="/privacy" element={<Privacy />} />
             
             {/* Authentication routes */}
             <Route path="/signin" element={<SignIn />} />

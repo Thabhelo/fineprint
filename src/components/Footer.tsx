@@ -96,7 +96,7 @@ export default function Footer() {
                 <Link to="/careers" target="_blank" className="text-gray-300 hover:text-indigo-400 transition-colors">Careers</Link>
               </li>
               <li>
-                <Link to="/press" target="_blank" className="text-gray-300 hover:text-indigo-400 transition-colors">Press</Link>
+                <Link to="/privacy" target="_blank" className="text-gray-300 hover:text-indigo-400 transition-colors">Privacy</Link>
               </li>
             </ul>
           </div>
