@@ -13,39 +13,10 @@ import {
   Folder,
 } from "lucide-react";
 import { toast } from "sonner";
-import { analyzeContract, supabase } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 import { format } from "date-fns";
-import type { Contract } from "../types";
-
-const DEFAULT_DOCUMENTS: Document[] = [
-  {
-    id: "1",
-    title: "Standard Employment Agreement",
-    category: "Employment",
-    tags: ["contract", "employment", "template"],
-    lastModified: new Date().toISOString(),
-    status: "complete" as const,
-    riskLevel: "low" as const,
-  },
-  {
-    id: "2",
-    title: "Non-Disclosure Agreement",
-    category: "Confidentiality",
-    tags: ["NDA", "confidentiality", "template"],
-    lastModified: new Date().toISOString(),
-    status: "complete" as const,
-    riskLevel: "medium" as const,
-  },
-  {
-    id: "3",
-    title: "Service Level Agreement",
-    category: "Services",
-    tags: ["SLA", "services", "contract"],
-    lastModified: new Date().toISOString(),
-    status: "complete" as const,
-    riskLevel: "low" as const,
-  },
-];
+import { DocumentUploader } from "../components/DocumentUploader";
+import type { ProcessedDocument } from "../services/documentProcessor";
 
 interface Document {
   id: string;
@@ -57,6 +28,8 @@ interface Document {
   riskLevel?: "low" | "medium" | "high";
   url?: string;
   file_path?: string;
+  content?: string;
+  metadata?: ProcessedDocument["metadata"];
 }
 
 interface DocumentStats {
@@ -64,6 +37,16 @@ interface DocumentStats {
   highRiskCount: number;
   categoryCount: number;
   analyzedCount: number;
+}
+
+interface ProcessedDocumentRow {
+  id: string;
+  user_id: string;
+  file_name: string;
+  content: string;
+  metadata: ProcessedDocument["metadata"];
+  created_at: string;
+  updated_at: string;
 }
 
 export default function DocumentLibrary() {
@@ -76,40 +59,8 @@ export default function DocumentLibrary() {
     categoryCount: 0,
     analyzedCount: 0,
   });
-  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [contracts, setContracts] = useState<Contract[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadContracts();
-  }, []);
-
-  const loadContracts = async () => {
-    try {
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) {
-        throw new Error('Not authenticated');
-      }
-
-      const { data, error } = await supabase
-        .from('contracts')
-        .select(`
-          *,
-          analysis_results (
-            risk_level
-          )
-        `)
-        .eq('user_id', user.data.user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setContracts(data || []);
-    } catch (error) {
-      console.error('Error loading contracts:', error);
-      toast.error('Failed to load contracts');
-    }
-  };
 
   useEffect(() => {
     loadDocuments();
@@ -117,53 +68,38 @@ export default function DocumentLibrary() {
 
   const loadDocuments = async () => {
     try {
-      const { data: contracts, error } = await supabase
-        .from("contracts")
-        .select(
-          `
-          *,
-          analysis_results (
-            risk_level
-          )
-        `
-        )
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        console.error("No authenticated user found");
+        throw new Error("Please sign in to view your documents");
+      }
+
+      console.log("Fetching documents for user:", user.id);
+      const { data, error } = await supabase
+        .from("processed_documents")
+        .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Error loading documents:", error);
-        // Use default documents if there's an error or no data
-        setDocuments(DEFAULT_DOCUMENTS);
-        setStats({
-          totalDocuments: DEFAULT_DOCUMENTS.length,
-          highRiskCount: DEFAULT_DOCUMENTS.filter(
-            (doc) => doc.riskLevel === "high"
-          ).length,
-          categoryCount: new Set(DEFAULT_DOCUMENTS.map((doc) => doc.category))
-            .size,
-          analyzedCount: DEFAULT_DOCUMENTS.filter(
-            (doc) => doc.status === "complete"
-          ).length,
-        });
-        return;
+        console.error("Supabase query error:", error);
+        throw new Error(`Failed to load documents: ${error.message}`);
       }
 
-      // If we have real data, use it
-      const formattedDocs = contracts?.length
-        ? (contracts as Contract[]).map((contract) => ({
-            id: contract.id,
-            title: contract.title,
-            category: "Uncategorized", // Default category
-            tags: ["document"], // Default tags
-            lastModified: contract.updated_at,
-            status: "complete" as const,
-            riskLevel: (contract.analysis_results?.[0]?.risk_level || "low") as
-              | "low"
-              | "medium"
-              | "high",
-            url: contract.url || undefined,
-            file_path: contract.file_path || undefined,
-          }))
-        : DEFAULT_DOCUMENTS;
+      console.log("Received documents:", data?.length || 0);
+      const formattedDocs = (data as ProcessedDocumentRow[]).map((doc) => ({
+        id: doc.id,
+        title: doc.file_name,
+        category: doc.metadata.type,
+        tags: [doc.metadata.type],
+        lastModified: doc.created_at,
+        status: "complete" as const,
+        riskLevel: "low" as const,
+        content: doc.content,
+        metadata: doc.metadata,
+      }));
 
       setDocuments(formattedDocs);
 
@@ -172,41 +108,32 @@ export default function DocumentLibrary() {
         formattedDocs.map((doc) => doc.category)
       );
       setStats({
-        totalDocuments: formattedDocs.length || 0,
-        highRiskCount:
-          formattedDocs.filter((doc) => doc.riskLevel === "high").length || 0,
-        categoryCount: uniqueCategories.size || 0,
-        analyzedCount:
-          formattedDocs.filter((doc) => doc.status === "complete").length || 0,
+        totalDocuments: formattedDocs.length,
+        highRiskCount: formattedDocs.filter((doc) => doc.riskLevel === "high")
+          .length,
+        categoryCount: uniqueCategories.size,
+        analyzedCount: formattedDocs.filter((doc) => doc.status === "complete")
+          .length,
       });
     } catch (error) {
       console.error("Error loading documents:", error);
-      // Use default documents on error
-      setDocuments(DEFAULT_DOCUMENTS);
-      setStats({
-        totalDocuments: DEFAULT_DOCUMENTS.length,
-        highRiskCount: DEFAULT_DOCUMENTS.filter(
-          (doc) => doc.riskLevel === "high"
-        ).length,
-        categoryCount: new Set(DEFAULT_DOCUMENTS.map((doc) => doc.category))
-          .size,
-        analyzedCount: DEFAULT_DOCUMENTS.filter(
-          (doc) => doc.status === "complete"
-        ).length,
-      });
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred while loading documents";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const categories = [
-    "all",
-    ...new Set(
-      documents.length
-        ? documents.map((doc) => doc.category)
-        : DEFAULT_DOCUMENTS.map((doc) => doc.category)
-    ),
-  ];
+  const handleDocumentProcessed = async (processedDoc: ProcessedDocument) => {
+    // Refresh the document list
+    await loadDocuments();
+  };
+
+  const categories = ["all", ...new Set(documents.map((doc) => doc.category))];
 
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch =
@@ -218,95 +145,6 @@ export default function DocumentLibrary() {
       selectedCategory === "all" || doc.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
-
-  const handleFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const tempDocId = Date.now().toString();
-    const tempDoc: Document = {
-      id: tempDocId,
-      title: file.name,
-      category: "Pending",
-      tags: ["new"],
-      lastModified: new Date().toISOString(),
-      status: "analyzing",
-    };
-
-    try {
-      setUploading(true);
-      setDocuments((prev) => [tempDoc, ...prev]);
-
-      // Get the current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("No user found");
-
-      // Upload file to Supabase storage
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${tempDocId}.${fileExt}`;
-      const filePath = `${user.id}/${fileName}`;
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("contract-docs")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // Get the public URL for the uploaded file
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("contract-docs").getPublicUrl(filePath);
-
-      // Save document metadata to contracts table
-      const { data: contract, error: dbError } = await supabase
-        .from("contracts")
-        .insert({
-          title: file.name,
-          user_id: user.id,
-          url: publicUrl,
-          file_path: filePath,
-          content: "", // Empty content since we're storing the file separately
-        })
-        .select()
-        .single();
-
-      if (dbError) throw dbError;
-
-      // Update the document with success state
-      setDocuments((prev) =>
-        prev.map((doc) =>
-          doc.id === tempDocId
-            ? {
-                ...doc,
-                status: "complete",
-                riskLevel: "low",
-                tags: [...doc.tags, "low"],
-                url: publicUrl,
-                file_path: filePath,
-              }
-            : doc
-        )
-      );
-
-      toast.success("Document uploaded successfully");
-    } catch (error) {
-      console.error("Error uploading document:", error);
-      toast.error("Failed to upload document");
-
-      // Update the document to show error state
-      setDocuments((prev) =>
-        prev.map((doc) =>
-          doc.id === tempDocId ? { ...doc, status: "error" } : doc
-        )
-      );
-    } finally {
-      setUploading(false);
-    }
-  };
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -320,17 +158,15 @@ export default function DocumentLibrary() {
           transition={{ duration: 0.5 }}
         >
           <h1 className="text-3xl font-bold text-gray-900">Document Library</h1>
-          <p className="mt-2 text-gray-600">
-            Upload and manage your legal documents
-          </p>
+          <p className="mt-2 text-gray-600">Upload and manage your documents</p>
         </motion.div>
 
         {/* Quick Stats */}
         <motion.div
-          className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4"
+          className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
         >
           <div className="bg-white rounded-xl shadow-md p-4">
             <div className="flex items-center">
@@ -380,48 +216,42 @@ export default function DocumentLibrary() {
           </div>
         </motion.div>
 
-        {/* Upload Section */}
+        {/* Document Uploader */}
         <motion.div
-          className="mt-8 bg-white rounded-xl shadow-lg p-8"
+          className="mt-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
-            <Upload className="mx-auto h-12 w-12 text-gray-400" />
-            <p className="mt-2 text-gray-600">
-              Drag and drop your contract here, or
-            </p>
-            <label className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:shadow-lg transition-all duration-300 cursor-pointer">
-              Browse Files
-              <input
-                type="file"
-                className="hidden"
-                accept=".txt,.pdf,.doc,.docx"
-                onChange={handleFileUpload}
-                disabled={uploading}
-              />
-            </label>
-          </div>
+          <DocumentUploader onDocumentProcessed={handleDocumentProcessed} />
         </motion.div>
 
         {/* Search and Filter */}
-        <div className="mt-8 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search documents..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
-            />
+        <motion.div
+          className="mt-8 flex flex-col sm:flex-row gap-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <input
+                type="text"
+                placeholder="Search documents..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
-          <div className="sm:w-64">
+          <div className="flex items-center gap-2">
+            <Filter className="text-gray-400 h-5 w-5" />
             <select
+              className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+              aria-label="Filter by category"
             >
               {categories.map((category) => (
                 <option key={category} value={category}>
@@ -430,7 +260,7 @@ export default function DocumentLibrary() {
               ))}
             </select>
           </div>
-        </div>
+        </motion.div>
 
         {/* Document Grid */}
         <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -472,19 +302,16 @@ export default function DocumentLibrary() {
                 ))}
               </div>
 
-              {doc.riskLevel && (
-                <div className="mt-4">
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      doc.riskLevel === "high"
-                        ? "bg-red-100 text-red-800"
-                        : doc.riskLevel === "medium"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-green-100 text-green-800"
-                    }`}
-                  >
-                    {doc.riskLevel.toUpperCase()} RISK
-                  </span>
+              {doc.metadata && (
+                <div className="mt-4 text-sm text-gray-600">
+                  <p>Pages: {doc.metadata.pageCount || "N/A"}</p>
+                  <p>Words: {doc.metadata.wordCount}</p>
+                  {doc.metadata.ocrResults && (
+                    <p>
+                      OCR Confidence:{" "}
+                      {Math.round(doc.metadata.ocrResults.confidence)}%
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -493,10 +320,18 @@ export default function DocumentLibrary() {
                   Modified: {format(new Date(doc.lastModified), "PPP")}
                 </span>
                 <div className="flex space-x-2">
-                  <button className="p-2 text-gray-600 hover:text-indigo-600 transition-colors">
+                  <button
+                    className="p-2 text-gray-600 hover:text-indigo-600 transition-colors"
+                    title="Download document"
+                    aria-label="Download document"
+                  >
                     <Download className="h-5 w-5" />
                   </button>
-                  <button className="p-2 text-gray-600 hover:text-indigo-600 transition-colors">
+                  <button
+                    className="p-2 text-gray-600 hover:text-indigo-600 transition-colors"
+                    title="Share document"
+                    aria-label="Share document"
+                  >
                     <Share2 className="h-5 w-5" />
                   </button>
                 </div>
