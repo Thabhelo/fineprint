@@ -27,29 +27,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabaseConfigured = isSupabaseConfigured;
 
   useEffect(() => {
+    console.log('🔍 AuthProvider initializing, Supabase configured:', supabaseConfigured);
+    
     // Skip auth initialization if Supabase isn't configured
     if (!supabaseConfigured) {
+      console.log('⚠️ Skipping auth initialization - Supabase not configured');
       setLoading(false);
       return;
     }
     
     const getSession = async () => {
       try {
+        console.log('🔍 Retrieving session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
-          console.error("Failed to retrieve session:", error);
+          console.error("❌ Failed to retrieve session:", error);
           toast.error("Failed to retrieve session.");
           setLoading(false);
           return;
         }
         
+        console.log('Session result:', session ? 'Session found' : 'No session');
         setUser(session?.user ?? null);
         if (session?.user) {
+          console.log('User found in session, fetching role...');
           fetchUserRole(session.user.id);
+        } else {
+          console.log('No user in session');
         }
         setLoading(false);
       } catch (err) {
-        console.error("Unexpected error getting session:", err);
+        console.error("❌ Unexpected error getting session:", err);
         setLoading(false);
       }
     };
@@ -58,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('🔔 Auth state changed, event:', _event);
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserRole(session.user.id);
@@ -76,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabaseConfigured) return;
     
     try {
+      console.log('🔍 Fetching user role for user ID:', userId);
       // First, try to get the role from user_profiles table
       const { data, error } = await supabase
         .from('user_profiles')
@@ -84,35 +94,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
         
       if (error) {
+        console.log('❌ Error fetching role from user_profiles:', error.message);
         // If no profile found, try user metadata
+        console.log('🔍 Falling back to user metadata for role...');
         const { data: userData, error: userError } = await supabase.auth.getUser();
         
         if (!userError && userData?.user?.user_metadata?.role) {
+          console.log('✅ Found role in user metadata:', userData.user.user_metadata.role);
           setRole(userData.user.user_metadata.role as string);
           return;
         }
         
         // If all else fails, set a default role
-        console.error("Error fetching user role:", error);
+        console.log('⚠️ No role found, using default role: user');
         setRole('user');
         return;
       }
       
       // Role found in user_profiles
+      console.log('✅ Found role in user_profiles:', data.role || 'user');
       setRole(data.role || 'user');
     } catch (error) {
-      console.error("Unexpected error fetching user role:", error);
+      console.error("❌ Unexpected error fetching user role:", error);
       setRole('user');
     }
   };
 
   const signUp = async (email: string, password: string) => {
     if (!supabaseConfigured) {
+      console.log('⚠️ Signup attempted but Supabase is not configured');
       toast.error("Authentication is not configured.");
       throw new Error("Supabase not configured");
     }
     
     if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      console.log('⚠️ Password requirements not met');
       toast.error("Password must be at least 8 characters long and include a number and an uppercase letter.");
       throw new Error("Password requirements not met");
     }
@@ -149,6 +165,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       console.log('✅ Signup successful:', data);
+      
+      // Check if email confirmation is needed
+      if (data.user && !data.user.email_confirmed_at) {
+        console.log('📧 Email confirmation required for new signup');
+      } else {
+        console.log('📧 Email confirmation not required');
+      }
+      
       toast.success('Check your email to confirm your account!');
       return data;
     } catch (error: any) {
@@ -160,6 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     if (!supabaseConfigured) {
+      console.log('⚠️ Sign in attempted but Supabase is not configured');
       toast.error("Authentication is not configured.");
       throw new Error("Supabase not configured");
     }
@@ -170,6 +195,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         console.error('❌ Error during signin:', error);
+        
+        // Handle specific database schema error
+        if (error.message.includes('Database error querying schema')) {
+          console.error('❌ Supabase auth database schema error detected');
+          
+          // Check if we can still access other Supabase resources
+          try {
+            const { error: profileError } = await supabase
+              .from('user_profiles')
+              .select('count')
+              .limit(1);
+              
+            if (profileError) {
+              console.error('❌ Cannot access user_profiles table either:', profileError.message);
+              toast.error('Authentication system is currently unavailable. Please contact support.');
+            } else {
+              console.log('✅ Can access user_profiles table, issue is specific to auth tables');
+              toast.error('Authentication system is experiencing issues. Please try again later or contact support.');
+            }
+          } catch (testError) {
+            console.error('❌ Error testing database access:', testError);
+            toast.error('Cannot connect to the authentication service. Please try again later.');
+          }
+          
+          throw new Error('Authentication system unavailable');
+        }
+        
+        // Enhanced error logging
+        if (error.message.includes('Invalid login credentials')) {
+          console.log('⚠️ Invalid credentials error - checking if user exists...');
+          
+          // Check if user exists but credentials are wrong
+          const { data: userData, error: userError } = await supabase.auth.signInWithOtp({ email });
+          
+          if (userError) {
+            console.log('❌ Email OTP check failed:', userError.message);
+            console.log('⚠️ User likely does not exist or has issues');
+          } else {
+            console.log('✅ Email OTP sent successfully - user exists but wrong password');
+          }
+        }
+        
         throw error;
       }
 
@@ -181,8 +248,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error('❌ Exception during signin:', error);
       
-      if (error.message.includes('Invalid login credentials')) {
+      // Present user-friendly error messages
+      if (error.message === 'Authentication system unavailable') {
+        // Already handled above
+      } else if (error.message.includes('Invalid login credentials')) {
         toast.error('Invalid email or password. Please try again.');
+      } else if (error.message.includes('rate limit')) {
+        toast.error('Too many login attempts. Please try again later.');
       } else {
         toast.error(error.message || "An unexpected error occurred");
       }

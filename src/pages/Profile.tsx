@@ -23,22 +23,69 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications' | 'billing'>('profile');
   const [saving, setSaving] = useState(false);
+  const [fallbackUser, setFallbackUser] = useState<any>(null);
 
   useEffect(() => {
-    loadProfile();
+    // Check for fallback authentication
+    const storedUser = localStorage.getItem('fallback_auth_user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setFallbackUser(parsedUser);
+        // Now that we have the fallback user, attempt to load the profile
+        loadProfile(parsedUser);
+      } catch (e) {
+        console.error('Error parsing fallback user in Profile:', e);
+        localStorage.removeItem('fallback_auth_user');
+        // Still try to load the profile with standard auth
+        loadProfile();
+      }
+    } else {
+      // No fallback user, try standard auth
+      loadProfile();
+    }
   }, []);
 
-  const loadProfile = async () => {
+  const loadProfile = async (fallbackUserData?: any) => {
     try {
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) {
+      // First check standard Supabase auth
+      const userResponse = await supabase.auth.getUser();
+      let userId = userResponse.data.user?.id;
+      
+      // If no standard auth user but we have fallback user (either from state or passed in)
+      const currentFallbackUser = fallbackUserData || fallbackUser;
+      if (!userId && currentFallbackUser) {
+        console.log('Using fallback user ID for profile:', currentFallbackUser.id);
+        userId = currentFallbackUser.id;
+        
+        // For fallback auth, we'll just use the data we have
+        if (!profile) {
+          setProfile({
+            id: currentFallbackUser.id,
+            user_id: currentFallbackUser.id,
+            full_name: currentFallbackUser.name || currentFallbackUser.email.split('@')[0],
+            email: currentFallbackUser.email,
+            company: '',
+            role: currentFallbackUser.role || 'User',
+            avatar_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+          setLoading(false);
+          return; // Early return for fallback auth
+        }
+      }
+      
+      // If no user ID at all, we're not authenticated
+      if (!userId) {
         throw new Error('Not authenticated');
       }
 
+      // Otherwise, fetch from database
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('user_id', user.data.user.id)
+        .eq('user_id', userId)
         .single();
 
       if (error) throw error;
@@ -57,15 +104,37 @@ export default function Profile() {
 
     setSaving(true);
     try {
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) {
+      // First check standard auth
+      const userResponse = await supabase.auth.getUser();
+      let userId = userResponse.data.user?.id;
+      
+      // If no standard auth user but we have fallback user
+      if (!userId && fallbackUser) {
+        userId = fallbackUser.id;
+        
+        // For fallback auth, just update local state and localStorage
+        const updatedUser = {
+          ...fallbackUser,
+          name: profile.full_name
+        };
+        localStorage.setItem('fallback_auth_user', JSON.stringify(updatedUser));
+        setFallbackUser(updatedUser);
+        
+        toast.success('Profile updated successfully (offline mode)');
+        setSaving(false);
+        return; // Early return for fallback auth
+      }
+      
+      // If no user ID at all, we're not authenticated
+      if (!userId) {
         throw new Error('Not authenticated');
       }
 
+      // Otherwise, update in database
       const { error } = await supabase
         .from('user_profiles')
         .update(profile)
-        .eq('user_id', user.data.user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
       toast.success('Profile updated successfully');
