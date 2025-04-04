@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "../types/supabase";
+import type { Database, Json } from "../types/supabase";
 import { sendAnalysisEmail } from "./email";
 import type { GroqMessage } from "./groq";
 
