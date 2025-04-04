@@ -13,46 +13,113 @@ export interface GroqCompatible {
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Debug logging for authentication issues
+console.log("Supabase Auth Debug:");
+console.log("URL configured:", Boolean(supabaseUrl));
+console.log("Key configured:", Boolean(supabaseAnonKey));
+
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Missing Supabase environment variables");
 }
 
 // Debug log for environment variables
 console.log("Supabase Config Check:");
-console.log("- URL exists:", !!supabaseUrl);
-console.log("- Key exists:", !!supabaseAnonKey);
-console.log(
-  "- URL preview:",
-  supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : "missing"
-);
-console.log(
-  "- Key preview:",
-  supabaseAnonKey ? `${supabaseAnonKey.substring(0, 10)}...` : "missing"
-);
+// Don't log full keys in production, just partial for debugging
+if (process.env.NODE_ENV !== 'production') {
+  console.log("URL:", supabaseUrl);
+  console.log("Key (first 10 chars):", supabaseAnonKey.substring(0, 10));
+} else {
+  console.log("URL is set");
+  console.log("Key is set");
+}
 
 // Export isConfigured check for reuse
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
-// Initialize Supabase client
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+// Initialize Supabase client with detailed options
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  global: {
+    fetch: (...args) => {
+      // Log all fetch requests to help debug auth issues
+      const [url, options] = args;
+      console.log(`🔍 Supabase fetch: ${url}`, {
+        method: options?.method || 'GET',
+        hasHeaders: Boolean(options?.headers),
+        hasBody: Boolean(options?.body),
+      });
+      return fetch(...args);
+    }
+  }
+});
+
+// Add authentication debug wrapper
+const originalSignUp = supabase.auth.signUp;
+supabase.auth.signUp = async (...args) => {
+  console.log("🔍 signUp called with:", JSON.stringify(args[0], (key, value) => 
+    key === 'password' ? '***REDACTED***' : value
+  ));
+  try {
+    const result = await originalSignUp.apply(supabase.auth, args);
+    console.log("📤 signUp result:", result.error ? `Error: ${result.error.message}` : "Success", 
+      result.error ? { code: result.error.code, status: result.error.status } : {});
+    return result;
+  } catch (error) {
+    console.error("❌ signUp exception:", error);
+    throw error;
+  }
+};
+
+const originalSignIn = supabase.auth.signInWithPassword;
+supabase.auth.signInWithPassword = async (...args) => {
+  console.log("🔍 signInWithPassword called with:", JSON.stringify(args[0], (key, value) => 
+    key === 'password' ? '***REDACTED***' : value
+  ));
+  try {
+    const result = await originalSignIn.apply(supabase.auth, args);
+    console.log("📤 signInWithPassword result:", result.error ? `Error: ${result.error.message}` : "Success",
+      result.error ? { code: result.error.code, status: result.error.status } : {});
+    
+    // Check for the specific database schema error
+    if (result.error && result.error.message.includes('Database error querying schema')) {
+      console.error('❌ Supabase auth database schema error detected. This likely indicates:');
+      console.error('1. The auth schema in the Supabase project is misconfigured');
+      console.error('2. The API key may not have sufficient permissions');
+      console.error('3. The Supabase project may be in an error state');
+      console.error('Please verify your Supabase project settings and ensure the auth tables are properly configured.');
+    }
+    
+    return result;
+  } catch (error) {
+    console.error("❌ signInWithPassword exception:", error);
+    throw error;
+  }
+};
 
 // Test Supabase connection on initialization (only if configured)
 if (isSupabaseConfigured) {
-  (async function testConnection() {
-    try {
-      const { error } = await supabase
-        .from("user_profiles")
-        .select("count")
-        .limit(1);
+  console.log("🔍 Testing Supabase connection...");
+  supabase
+    .from("user_profiles")
+    .select("count")
+    .limit(1)
+    .then(({ data, error }) => {
       if (error) {
         console.error("❌ Supabase connection test failed:", error.message);
+        if (error.message.includes('Database error') || error.message.includes('schema')) {
+          console.error('This is likely due to a database schema issue');
+        }
       } else {
-        console.log("✅ Supabase connection test successful");
+        console.log("✅ Supabase connection test succeeded");
       }
-    } catch (err) {
-      console.error("❌ Unexpected error testing Supabase connection:", err);
-    }
-  })();
+    })
+    .catch((err) => {
+      console.error("❌ Unexpected error during Supabase connection test:", err);
+    });
 }
 
 /** 🔹 Get current user (Helper) */

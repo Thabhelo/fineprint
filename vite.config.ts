@@ -21,6 +21,10 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_API_URL || "http://localhost:3000/api",
           changeOrigin: true,
           rewrite: (path: string) => path.replace(/^\/api/, ""),
+          filter: (path: string) => {
+            // Don't proxy auth-related requests, let those go directly to Supabase
+            return !path.startsWith('/auth/');
+          },
         },
       },
     },

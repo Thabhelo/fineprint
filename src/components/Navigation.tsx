@@ -1,13 +1,32 @@
-import { useState, useEffect } from 'react';
-import { Menu, X, Shield, Download, BookOpen, FileText } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Menu, X, Shield, Download, BookOpen, FileText, ChevronDown, LogOut, User, Settings } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [fallbackUser, setFallbackUser] = useState<any>(null);
+  const { user, signOut, loading } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
-  const { user, signOut } = useAuth();
+
+  // Add effect to check for fallback auth
+  useEffect(() => {
+    // Check if we have a fallback user in localStorage
+    const storedUser = localStorage.getItem('fallback_auth_user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setFallbackUser(parsedUser);
+      } catch (e) {
+        console.error('Error parsing fallback user:', e);
+        localStorage.removeItem('fallback_auth_user');
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -20,6 +39,36 @@ export default function Navigation() {
   const handleChromeExtension = () => {
     window.open('https://chrome.google.com/webstore/category/extensions', '_blank');
   };
+
+  // Close menu when route changes
+  useEffect(() => {
+    setIsOpen(false);
+    setIsDropdownOpen(false);
+  }, [location.pathname]);
+
+  const handleSignOut = async () => {
+    try {
+      // Check if we're using fallback auth
+      if (fallbackUser) {
+        localStorage.removeItem('fallback_auth_user');
+        setFallbackUser(null);
+        toast.success('Successfully signed out!');
+        navigate('/');
+        return;
+      }
+      
+      // Otherwise use normal auth
+      await signOut();
+      navigate('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast.error('Failed to sign out.');
+    }
+  };
+
+  // Determine if user is authenticated (either via Supabase Auth or fallback)
+  const isAuthenticated = !loading && (user || fallbackUser);
+  const userDisplayName = user?.email || fallbackUser?.email || '';
 
   return (
     <nav className={`fixed w-full z-50 transition-all duration-300 ${
@@ -55,15 +104,38 @@ export default function Navigation() {
               <Download className="h-4 w-4 mr-1" /> Extension
             </button>
             
-            {user ? (
-              <div className="flex items-center space-x-4">
-                <Link to="/profile" className="text-gray-700 hover:text-indigo-600 transition-colors">Profile</Link>
-                <button 
-                  onClick={signOut}
-                  className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-2 rounded-full hover:shadow-lg transition-all duration-300 hover:scale-105"
+            {isAuthenticated ? (
+              <div className="relative ml-3">
+                <button
+                  type="button"
+                  className="flex text-gray-700 hover:text-indigo-600 items-center"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 >
-                  Sign Out
+                  <span>{userDisplayName}</span>
+                  <ChevronDown className="ml-1 h-4 w-4" />
                 </button>
+                
+                {isDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
+                    {fallbackUser && (
+                      <div className="px-4 py-2 text-xs text-yellow-500 border-b border-gray-100">
+                        Using fallback authentication
+                      </div>
+                    )}
+                    <Link 
+                      to="/profile" 
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <User className="inline-block mr-2 h-4 w-4" /> Profile
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <LogOut className="inline-block mr-2 h-4 w-4" /> Sign Out
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center space-x-4">
@@ -111,16 +183,28 @@ export default function Navigation() {
               <Download className="h-4 w-4 mr-2" /> Chrome Extension
             </button>
             
-            {user ? (
-              <>
-                <Link to="/profile" className="block px-3 py-2 text-gray-700 hover:text-indigo-600 transition-colors">Profile</Link>
+            {isAuthenticated ? (
+              <div>
+                <div className="mt-3 border-t border-gray-200 pt-3">
+                  <div className="block px-3 py-2 text-gray-500">
+                    {userDisplayName}
+                    {fallbackUser && (
+                      <span className="ml-2 text-xs text-yellow-500">
+                        (Fallback Auth)
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Link to="/profile" className="block px-3 py-2 text-gray-700 hover:text-indigo-600 transition-colors">
+                  Profile
+                </Link>
                 <button 
-                  onClick={signOut}
+                  onClick={handleSignOut}
                   className="w-full mt-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-full hover:shadow-lg transition-all duration-300"
                 >
                   Sign Out
                 </button>
-              </>
+              </div>
             ) : (
               <>
                 <Link 

@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
+import AuthPrompt from './AuthPrompt';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -7,9 +9,25 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
-  const { role, loading } = useAuth();
+  const { user, role, loading } = useAuth();
+  const [fallbackUser, setFallbackUser] = useState<any>(null);
 
-  if (loading) {
+  // Check for fallback authentication on mount
+  useEffect(() => {
+    const storedUser = localStorage.getItem('fallback_auth_user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setFallbackUser(parsedUser);
+      } catch (e) {
+        console.error('Error parsing fallback user in ProtectedRoute:', e);
+        localStorage.removeItem('fallback_auth_user');
+      }
+    }
+  }, []);
+
+  // Show loading indicator while checking auth
+  if (loading && !fallbackUser) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
@@ -17,8 +35,19 @@ export default function ProtectedRoute({ children, adminOnly = false }: Protecte
     );
   }
   
-  // For admin-only routes, check role but don't block completely
-  if (adminOnly && role !== 'admin') {
+  // Check if user is authenticated (either with Supabase or fallback)
+  const isAuthenticated = Boolean(user || fallbackUser);
+  
+  // If not authenticated at all, show auth prompt
+  if (!isAuthenticated) {
+    return <AuthPrompt />;
+  }
+  
+  // For admin-only routes, check role
+  // Get role from either standard auth or fallback auth
+  const userRole = role || fallbackUser?.role || 'user';
+
+  if (adminOnly && userRole !== 'admin') {
     return (
       <div className="min-h-screen pt-20 px-4">
         <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md p-8 mt-8">
