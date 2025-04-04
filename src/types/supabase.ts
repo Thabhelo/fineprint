@@ -1,3 +1,6 @@
+// Add JSON type alias to fix 'Cannot find name Json' error
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
 export interface ProcessedDocument {
   id: string;
   user_id: string;
@@ -61,6 +64,10 @@ export interface UserProfile {
 export interface UserSetting {
   id: string;
   user_id: string;
+  email_notifications: boolean;
+  notification_frequency: string;
+  theme: string;
+  language: string;
   setting_key: string;
   setting_value: any;
   created_at: string;
