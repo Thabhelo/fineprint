@@ -67,6 +67,7 @@ export default function Profile() {
             email: currentFallbackUser.email,
             company: '',
             role: currentFallbackUser.role || 'User',
+            avatar_url: null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });

@@ -103,23 +103,25 @@ supabase.auth.signInWithPassword = async (...args) => {
 // Test Supabase connection on initialization (only if configured)
 if (isSupabaseConfigured) {
   console.log("🔍 Testing Supabase connection...");
-  supabase
-    .from("user_profiles")
-    .select("count")
-    .limit(1)
-    .then(({ data, error }) => {
-      if (error) {
-        console.error("❌ Supabase connection test failed:", error.message);
-        if (error.message.includes('Database error') || error.message.includes('schema')) {
-          console.error('This is likely due to a database schema issue');
+  // Use Promise.resolve() to wrap the result in a proper Promise that has a catch method
+  Promise.resolve(
+    supabase
+      .from("user_profiles")
+      .select("count")
+      .limit(1)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("❌ Supabase connection test failed:", error.message);
+          if (error.message.includes('Database error') || error.message.includes('schema')) {
+            console.error('This is likely due to a database schema issue');
+          }
+        } else {
+          console.log("✅ Supabase connection test succeeded");
         }
-      } else {
-        console.log("✅ Supabase connection test succeeded");
-      }
-    })
-    .catch((err) => {
-      console.error("❌ Unexpected error during Supabase connection test:", err);
-    });
+      })
+  ).catch((err: Error) => {
+    console.error("❌ Unexpected error during Supabase connection test:", err);
+  });
 }
 
 /** 🔹 Get current user (Helper) */
