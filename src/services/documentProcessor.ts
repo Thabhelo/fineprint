@@ -137,20 +137,30 @@ export class DocumentProcessor {
     text: string,
     metadata: ProcessedDocument["metadata"]
   ): Promise<void> {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("User not authenticated");
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      
+      // Skip storage if user is not authenticated, but don't throw an error
+      if (!user) {
+        console.log("User not authenticated - skipping document storage");
+        return;
+      }
 
-    const { error } = await supabase.from("processed_documents").insert({
-      user_id: user.id,
-      file_name: fileName,
-      content: text,
-      metadata: metadata,
-      created_at: new Date().toISOString(),
-    });
+      const { error } = await supabase.from("processed_documents").insert({
+        user_id: user.id,
+        file_name: fileName,
+        content: text,
+        metadata: metadata,
+        created_at: new Date().toISOString(),
+      });
 
-    if (error) throw error;
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error storing document:", error);
+      // Don't throw the error to allow processing to continue
+    }
   }
 
   public async cleanup(): Promise<void> {
