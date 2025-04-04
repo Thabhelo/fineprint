@@ -107,8 +107,7 @@ export default function DocumentLibrary() {
         tags: [doc.metadata.type],
         lastModified: doc.created_at,
         status: "complete" as const,
-        // Fix this to allow high as a valid risk level by setting a default value
-        riskLevel: ("low" as "low" | "medium" | "high"),
+        riskLevel: "low" as "low" | "medium" | "high",
         content: doc.content,
         metadata: doc.metadata,
       }));
@@ -121,8 +120,7 @@ export default function DocumentLibrary() {
       );
       setStats({
         totalDocuments: formattedDocs.length,
-        // This fixes the type error by using the same type for comparison
-        highRiskCount: formattedDocs.filter((doc) => doc.riskLevel === "high" as const)
+        highRiskCount: formattedDocs.filter((doc) => doc.riskLevel === ("high" as const))
           .length,
         categoryCount: uniqueCategories.size,
         analyzedCount: formattedDocs.filter((doc) => doc.status === "complete")
