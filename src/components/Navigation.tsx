@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Menu, X, Shield, Download, BookOpen, FileText, ChevronDown, LogOut, User, Settings } from 'lucide-react';
+import { Menu, X, Shield, Download, BookOpen, FileText, ChevronDown, User, Settings } from 'lucide-react';
 import { toast } from 'sonner';
+import AuthButton from './AuthButton';
 
 export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
@@ -46,26 +47,6 @@ export default function Navigation() {
     setIsOpen(false);
     setIsDropdownOpen(false);
   }, [location.pathname]);
-
-  const handleSignOut = async () => {
-    try {
-      // Check if we're using fallback auth
-      if (fallbackUser) {
-        localStorage.removeItem('fallback_auth_user');
-        setFallbackUser(null);
-        toast.success('Successfully signed out!');
-        navigate('/');
-        return;
-      }
-      
-      // Otherwise use normal auth
-      await signOut();
-      navigate('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
-      toast.error('Failed to sign out.');
-    }
-  };
 
   // Determine if user is authenticated (either via Supabase Auth or fallback)
   const isAuthenticated = !loading && (user || fallbackUser);
@@ -129,25 +110,12 @@ export default function Navigation() {
                     >
                       <User className="inline-block mr-2 h-4 w-4" /> Profile
                     </Link>
-                    <button
-                      onClick={handleSignOut}
-                      className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <LogOut className="inline-block mr-2 h-4 w-4" /> Sign Out
-                    </button>
+                    <AuthButton style="dropdown" />
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex items-center space-x-4">
-                <Link to="/signin" className="text-gray-700 hover:text-indigo-600 transition-colors">Sign In</Link>
-                <Link 
-                  to="/signup"
-                  className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-2 rounded-full hover:shadow-lg transition-all duration-300 hover:scale-105"
-                >
-                  Sign Up
-                </Link>
-              </div>
+              <AuthButton style="default" />
             )}
           </div>
 
@@ -199,28 +167,10 @@ export default function Navigation() {
                 <Link to="/profile" className="block px-3 py-2 text-gray-700 hover:text-indigo-600 transition-colors">
                   Profile
                 </Link>
-                <button 
-                  onClick={handleSignOut}
-                  className="w-full mt-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-full hover:shadow-lg transition-all duration-300"
-                >
-                  Sign Out
-                </button>
+                <AuthButton style="mobile" />
               </div>
             ) : (
-              <>
-                <Link 
-                  to="/signin"
-                  className="block px-3 py-2 text-gray-700 hover:text-indigo-600 transition-colors"
-                >
-                  Sign In
-                </Link>
-                <Link 
-                  to="/signup"
-                  className="w-full mt-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-full hover:shadow-lg transition-all duration-300"
-                >
-                  Sign Up
-                </Link>
-              </>
+              <AuthButton style="mobile" />
             )}
           </div>
         </div>

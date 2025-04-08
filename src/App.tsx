@@ -3,8 +3,7 @@ import { Toaster } from 'sonner';
 import { AuthProvider } from './contexts/AuthContext';
 import Navigation from './components/Navigation';
 import Home from './pages/Home';
-import SignIn from './pages/SignIn';
-import SignUp from './pages/SignUp';
+import AuthPage from './pages/AuthPage';
 import SignupSuccess from './pages/SignupSuccess';
 import AuthCallback from './pages/AuthCallback';
 import ResetPassword from './pages/ResetPassword';
@@ -48,8 +47,8 @@ function App() {
             <Route path="/extension" element={<Extension />} />
             
             {/* Authentication routes */}
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/signup" element={<SignUp />} />
+            <Route path="/signin" element={<AuthPage />} />
+            <Route path="/signup" element={<AuthPage />} />
             <Route path="/signup-success" element={<SignupSuccess />} />
             <Route path="/auth-callback" element={<AuthCallback />} />
             <Route path="/reset-password" element={<ResetPassword />} />

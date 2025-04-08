@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import React from 'react';
+import AuthButton from './AuthButton';
 
 export default function AuthPrompt() {
   return (
@@ -8,12 +9,9 @@ export default function AuthPrompt() {
         <p className="text-gray-600 mb-6">
           You need to log in to access this section. Please log in or create an account to continue.
         </p>
-        <Link 
-          to="/signin" 
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 inline-block"
-        >
-          Sign In
-        </Link>
+        <div className="flex justify-center">
+          <AuthButton style="primary" />
+        </div>
       </div>
     </div>
   );
