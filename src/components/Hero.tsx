@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Shield, ArrowRight, Sparkles, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Shield, ArrowRight, Sparkles, AlertTriangle, RefreshCw, Lock, Zap, Palette } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import ComplaintsCarousel from './ComplaintsCarousel';
 
 export default function Hero() {
   const { user } = useAuth();
@@ -62,7 +63,7 @@ export default function Hero() {
               </motion.div>
             </div>
 
-            {/* Animated Features */}
+            {/* Feature Boxes */}
             <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8">
               <motion.div
                 className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300"
@@ -72,10 +73,10 @@ export default function Hero() {
                 whileHover={{ y: -10 }}
               >
                 <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 mb-4 mx-auto">
-                  <Shield className="h-6 w-6 text-white" />
+                  <Lock className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="text-lg font-semibold text-center mb-2">AI-Powered Analysis</h3>
-                <p className="text-gray-600 text-center">Detect risky clauses and hidden fees automatically</p>
+                <h3 className="text-lg font-semibold text-center mb-2">Website Certificate Legitimacy</h3>
+                <p className="text-gray-600 text-center">FinePrint verifies that a website's certificate is valid and the domain is secure before you interact with its contracts.</p>
               </motion.div>
 
               <motion.div
@@ -85,11 +86,11 @@ export default function Hero() {
                 transition={{ duration: 0.5, delay: 0.8 }}
                 whileHover={{ y: -10 }}
               >
-                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-red-500 to-orange-500 mb-4 mx-auto">
-                  <AlertTriangle className="h-6 w-6 text-white" />
+                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 mb-4 mx-auto">
+                  <Zap className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="text-lg font-semibold text-center mb-2">Real-time Alerts</h3>
-                <p className="text-gray-600 text-center">Get instant notifications about potential scams</p>
+                <h3 className="text-lg font-semibold text-center mb-2">One-Click AI Analysis</h3>
+                <p className="text-gray-600 text-center">Upload or link your contract and get an instant, AI-powered analysis that flags risks, hidden fees, and ambiguous clauses.</p>
               </motion.div>
 
               <motion.div
@@ -99,38 +100,16 @@ export default function Hero() {
                 transition={{ duration: 0.5, delay: 1 }}
                 whileHover={{ y: -10 }}
               >
-                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-teal-500 mb-4 mx-auto">
-                  <RefreshCw className="h-6 w-6 text-white" />
+                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 mb-4 mx-auto">
+                  <Palette className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="text-lg font-semibold text-center mb-2">Automated Refunds</h3>
-                <p className="text-gray-600 text-center">Recover your money with automated dispute resolution</p>
+                <h3 className="text-lg font-semibold text-center mb-2">Color-Coded Highlights</h3>
+                <p className="text-gray-600 text-center">Our software automatically highlights crucial contract details—using color-coding—to draw attention to any concealed or critical information.</p>
               </motion.div>
             </div>
 
-            {/* Trust Metrics */}
-            <motion.div 
-              className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-4 text-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 1.2 }}
-            >
-              <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-4">
-                <h4 className="text-2xl font-bold text-indigo-600">$2.5M+</h4>
-                <p className="text-gray-600">Recovered Funds</p>
-              </div>
-              <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-4">
-                <h4 className="text-2xl font-bold text-indigo-600">50K+</h4>
-                <p className="text-gray-600">Protected Users</p>
-              </div>
-              <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-4">
-                <h4 className="text-2xl font-bold text-indigo-600">98%</h4>
-                <p className="text-gray-600">Success Rate</p>
-              </div>
-              <div className="bg-white/50 backdrop-blur-sm rounded-2xl p-4">
-                <h4 className="text-2xl font-bold text-indigo-600">24/7</h4>
-                <p className="text-gray-600">Support</p>
-              </div>
-            </motion.div>
+            {/* Complaints Carousel (replacing Trust Metrics) */}
+            <ComplaintsCarousel />
           </main>
         </div>
       </div>
