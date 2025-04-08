@@ -37,7 +37,8 @@ export default function Navigation() {
   }, []);
 
   const handleChromeExtension = () => {
-    window.open('https://chrome.google.com/webstore/category/extensions', '_blank');
+    // Navigate to the extension page instead of directly to Chrome web store
+    navigate('/extension');
   };
 
   // Close menu when route changes

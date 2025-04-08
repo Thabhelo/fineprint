@@ -23,6 +23,7 @@ import About from './pages/About';
 import Blog from './pages/Blog';
 import Careers from './pages/Careers';
 import Privacy from './pages/Privacy';
+import Extension from './pages/Extension';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Analytics as VercelAnalytics } from "@vercel/analytics/react"
@@ -44,6 +45,7 @@ function App() {
             <Route path="/blog" element={<Blog />} />
             <Route path="/careers" element={<Careers />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/extension" element={<Extension />} />
             
             {/* Authentication routes */}
             <Route path="/signin" element={<SignIn />} />

@@ -81,7 +81,7 @@ export default function GetStarted() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                to="/dashboard"
+                to="/"
                 className="inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-full text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:shadow-lg md:py-4 md:text-lg md:px-10 transition-all duration-300"
               >
                 Start Free Trial

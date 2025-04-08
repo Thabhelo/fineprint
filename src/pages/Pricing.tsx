@@ -75,6 +75,12 @@ export default function Pricing() {
       return;
     }
 
+    // Handle Free tier
+    if (tierName === 'Free') {
+      navigate('/');
+      return;
+    }
+
     // Only handle Premium tier with Stripe
     if (tierName !== 'Premium') {
       return;
