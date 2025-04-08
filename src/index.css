@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import responsive utilities */
+@import './utils/responsive.css';
+
 @keyframes float {
   0% { transform: translateY(0px); }
   50% { transform: translateY(-10px); }
@@ -37,4 +40,15 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .hover-scale:hover {
+    transform: none; /* Disable hover scaling on touch devices */
+  }
+  
+  .float-animation {
+    animation-duration: 4s; /* Faster animation on mobile */
+  }
 }

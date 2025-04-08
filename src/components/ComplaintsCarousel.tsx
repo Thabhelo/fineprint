@@ -171,7 +171,7 @@ const ComplaintsCarousel: React.FC = () => {
     </div>
   );
 
-  // CSS for the carousel
+  // CSS for the carousel with responsive design
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -192,8 +192,8 @@ const ComplaintsCarousel: React.FC = () => {
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       }
       .inner {
-        --w: 320px;
-        --h: 170px;
+        --w: min(320px, calc(100vw - 40px));
+        --h: min(170px, calc(100vw * 0.4));
         --translateZ: calc((var(--w) + var(--h)) + 20px);
         --rotateX: -5deg;
         --perspective: 1000px;
@@ -240,6 +240,29 @@ const ComplaintsCarousel: React.FC = () => {
             rgba(var(--color-card), 0.1) 100%
           );
       }
+      
+      /* Mobile responsiveness */
+      @media (max-width: 768px) {
+        .wrapper {
+          height: 400px;
+        }
+        .inner {
+          --w: min(260px, calc(100vw - 40px));
+          --h: min(140px, calc(100vw * 0.4));
+          --translateZ: calc((var(--w) + var(--h)) + 10px);
+        }
+      }
+      
+      @media (max-width: 480px) {
+        .wrapper {
+          height: 340px;
+        }
+        .inner {
+          --w: min(220px, calc(100vw - 40px));
+          --h: min(120px, calc(100vw * 0.4));
+          --translateZ: calc((var(--w) + var(--h)) + 5px);
+        }
+      }
     `;
     document.head.appendChild(style);
     return () => {
@@ -248,10 +271,10 @@ const ComplaintsCarousel: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-full py-12">
-      <h2 className="text-2xl tracking-tight font-bold text-center mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Real User Complaints About Hidden Contract Traps</h2>
+    <div className="w-full py-8 md:py-12">
+      <h2 className="text-xl md:text-2xl tracking-tight font-bold text-center mb-4 md:mb-6 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Real User Complaints About Hidden Contract Traps</h2>
       
-      <div className="wrapper w-full h-[480px] relative backdrop-blur-sm bg-indigo-900/5">
+      <div className="wrapper w-full h-[340px] md:h-[400px] lg:h-[480px] relative backdrop-blur-sm bg-indigo-900/5">
         <div className="inner" style={{"--quantity": complaints.length} as React.CSSProperties}>
           {complaints.map((complaint, index) => (
             <ComplaintCard key={complaint.id} complaint={complaint} index={index} />

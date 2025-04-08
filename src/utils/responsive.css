@@ -1,0 +1,138 @@
+/* Global responsive styles for the FinePrint application */
+
+/* Mobile-first responsive container */
+.container-responsive {
+  width: 100%;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 100%;
+}
+
+/* Responsive typography */
+.text-responsive {
+  font-size: clamp(0.875rem, 2vw, 1rem);
+  line-height: 1.5;
+}
+
+.heading-responsive {
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  line-height: 1.2;
+}
+
+/* Responsive spacing */
+.section-spacing {
+  padding-top: clamp(2rem, 5vw, 4rem);
+  padding-bottom: clamp(2rem, 5vw, 4rem);
+}
+
+.mb-responsive {
+  margin-bottom: clamp(1rem, 3vw, 2rem);
+}
+
+.mt-responsive {
+  margin-top: clamp(1rem, 3vw, 2rem);
+}
+
+/* Responsive grid */
+.grid-responsive {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: clamp(1rem, 3vw, 2rem);
+}
+
+/* Responsive image */
+.img-responsive {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Button sizes adjust for touch targets on mobile */
+.btn-responsive {
+  padding: clamp(0.5rem, 2vw, 0.75rem) clamp(1rem, 3vw, 1.5rem);
+  font-size: clamp(0.875rem, 2vw, 1rem);
+}
+
+/* Media queries for specific breakpoints */
+@media (max-width: 640px) {
+  .hide-sm {
+    display: none;
+  }
+  
+  .full-width-sm {
+    width: 100% !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .container-responsive {
+    max-width: 640px;
+  }
+  
+  .hide-md {
+    display: none;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .container-responsive {
+    max-width: 768px;
+  }
+}
+
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .container-responsive {
+    max-width: 1024px;
+  }
+}
+
+@media (min-width: 1281px) {
+  .container-responsive {
+    max-width: 1280px;
+  }
+}
+
+/* Utilities for specific device orientations */
+@media (orientation: portrait) {
+  .portrait-only {
+    display: block;
+  }
+  
+  .landscape-only {
+    display: none;
+  }
+}
+
+@media (orientation: landscape) {
+  .portrait-only {
+    display: none;
+  }
+  
+  .landscape-only {
+    display: block;
+  }
+}
+
+/* Responsive handling for touch devices */
+@media (hover: none) {
+  .hover-effect {
+    display: none;
+  }
+  
+  /* Increase tap targets for touch devices */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+} 

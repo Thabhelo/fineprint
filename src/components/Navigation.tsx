@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Menu, X, Shield, Download, BookOpen, FileText, ChevronDown, User, Settings } from 'lucide-react';
-import { toast } from 'sonner';
+import { Menu, X, Shield, Download, BookOpen, FileText, ChevronDown, User } from 'lucide-react';
 import AuthButton from './AuthButton';
 
 export default function Navigation() {
@@ -10,7 +9,7 @@ export default function Navigation() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [fallbackUser, setFallbackUser] = useState<any>(null);
-  const { user, signOut, loading } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -52,48 +51,65 @@ export default function Navigation() {
   const isAuthenticated = !loading && (user || fallbackUser);
   const userDisplayName = user?.email || fallbackUser?.email || '';
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isDropdownOpen) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('.user-dropdown')) {
+          setIsDropdownOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
   return (
     <nav className={`fixed w-full z-50 transition-all duration-300 ${
       scrolled ? 'bg-white/80 backdrop-blur-md shadow-lg' : 'bg-transparent'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between h-14 sm:h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center">
-              <Shield className="h-8 w-8 text-indigo-600 hover-scale" />
-              <span className="ml-2 text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              <Shield className="h-6 w-6 sm:h-8 sm:w-8 text-indigo-600" />
+              <span className="ml-2 text-base sm:text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 FinePrint
               </span>
             </Link>
           </div>
           
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <Link to="/features" className={`text-gray-700 hover:text-indigo-600 transition-colors ${location.pathname === '/features' ? 'text-indigo-600' : ''}`}>Features</Link>
-            <Link to="/pricing" className={`text-gray-700 hover:text-indigo-600 transition-colors ${location.pathname === '/pricing' ? 'text-indigo-600' : ''}`}>Pricing</Link>
-            <Link to="/contact" className={`text-gray-700 hover:text-indigo-600 transition-colors ${location.pathname === '/contact' ? 'text-indigo-600' : ''}`}>Contact</Link>
-            <Link to="/documents" className={`text-gray-700 hover:text-indigo-600 transition-colors flex items-center ${location.pathname === '/documents' ? 'text-indigo-600' : ''}`}>
+          <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
+            <Link to="/features" className={`text-sm lg:text-base text-gray-700 hover:text-indigo-600 transition-colors ${location.pathname === '/features' ? 'text-indigo-600' : ''}`}>Features</Link>
+            <Link to="/pricing" className={`text-sm lg:text-base text-gray-700 hover:text-indigo-600 transition-colors ${location.pathname === '/pricing' ? 'text-indigo-600' : ''}`}>Pricing</Link>
+            <Link to="/contact" className={`text-sm lg:text-base text-gray-700 hover:text-indigo-600 transition-colors ${location.pathname === '/contact' ? 'text-indigo-600' : ''}`}>Contact</Link>
+            <Link to="/documents" className={`text-sm lg:text-base text-gray-700 hover:text-indigo-600 transition-colors flex items-center ${location.pathname === '/documents' ? 'text-indigo-600' : ''}`}>
               <FileText className="h-4 w-4 mr-1" /> Documents
             </Link>
-            <Link to="/research" className={`text-gray-700 hover:text-indigo-600 transition-colors flex items-center ${location.pathname === '/research' ? 'text-indigo-600' : ''}`}>
+            <Link to="/research" className={`text-sm lg:text-base text-gray-700 hover:text-indigo-600 transition-colors flex items-center ${location.pathname === '/research' ? 'text-indigo-600' : ''}`}>
               <BookOpen className="h-4 w-4 mr-1" /> Research
             </Link>
             
             <button
               onClick={handleChromeExtension}
-              className="text-gray-700 hover:text-indigo-600 transition-colors flex items-center"
+              className="text-sm lg:text-base text-gray-700 hover:text-indigo-600 transition-colors flex items-center"
             >
               <Download className="h-4 w-4 mr-1" /> Extension
             </button>
             
             {isAuthenticated ? (
-              <div className="relative ml-3">
+              <div className="relative ml-3 user-dropdown">
                 <button
                   type="button"
-                  className="flex text-gray-700 hover:text-indigo-600 items-center"
+                  className="flex text-gray-700 hover:text-indigo-600 items-center text-sm lg:text-base"
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 >
-                  <span>{userDisplayName}</span>
+                  <span className="truncate max-w-[120px]">{userDisplayName}</span>
                   <ChevronDown className="ml-1 h-4 w-4" />
                 </button>
                 
@@ -124,7 +140,9 @@ export default function Navigation() {
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 transition-colors"
+              aria-expanded={isOpen}
             >
+              <span className="sr-only">{isOpen ? 'Close menu' : 'Open menu'}</span>
               {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
@@ -133,44 +151,79 @@ export default function Navigation() {
 
       {/* Mobile menu */}
       {isOpen && (
-        <div className="md:hidden absolute w-full bg-white/90 backdrop-blur-md shadow-lg">
-          <div className="px-2 pt-2 pb-3 space-y-1">
-            <Link to="/features" className="block px-3 py-2 text-gray-700 hover:text-indigo-600 transition-colors">Features</Link>
-            <Link to="/pricing" className="block px-3 py-2 text-gray-700 hover:text-indigo-600 transition-colors">Pricing</Link>
-            <Link to="/contact" className="block px-3 py-2 text-gray-700 hover:text-indigo-600 transition-colors">Contact</Link>
-            <Link to="/documents" className="block px-3 py-2 text-gray-700 hover:text-indigo-600 transition-colors flex items-center">
+        <div className="md:hidden absolute w-full bg-white/95 backdrop-blur-md shadow-lg z-20">
+          <div className="pt-2 pb-3 space-y-1 px-4">
+            <Link 
+              to="/features" 
+              className="block py-2.5 text-base font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+              onClick={() => setIsOpen(false)}
+            >
+              Features
+            </Link>
+            <Link 
+              to="/pricing" 
+              className="block py-2.5 text-base font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+              onClick={() => setIsOpen(false)}
+            >
+              Pricing
+            </Link>
+            <Link 
+              to="/contact" 
+              className="block py-2.5 text-base font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+              onClick={() => setIsOpen(false)}
+            >
+              Contact
+            </Link>
+            <Link 
+              to="/documents" 
+              className="block py-2.5 text-base font-medium text-gray-700 hover:text-indigo-600 transition-colors flex items-center"
+              onClick={() => setIsOpen(false)}
+            >
               <FileText className="h-4 w-4 mr-2" /> Documents
             </Link>
-            <Link to="/research" className="block px-3 py-2 text-gray-700 hover:text-indigo-600 transition-colors flex items-center">
+            <Link 
+              to="/research" 
+              className="block py-2.5 text-base font-medium text-gray-700 hover:text-indigo-600 transition-colors flex items-center"
+              onClick={() => setIsOpen(false)}
+            >
               <BookOpen className="h-4 w-4 mr-2" /> Research
             </Link>
             
             <button
-              onClick={handleChromeExtension}
-              className="w-full text-left px-3 py-2 text-gray-700 hover:text-indigo-600 transition-colors flex items-center"
+              onClick={() => {
+                handleChromeExtension();
+                setIsOpen(false);
+              }}
+              className="w-full text-left py-2.5 text-base font-medium text-gray-700 hover:text-indigo-600 transition-colors flex items-center"
             >
               <Download className="h-4 w-4 mr-2" /> Chrome Extension
             </button>
             
             {isAuthenticated ? (
-              <div>
-                <div className="mt-3 border-t border-gray-200 pt-3">
-                  <div className="block px-3 py-2 text-gray-500">
-                    {userDisplayName}
-                    {fallbackUser && (
-                      <span className="ml-2 text-xs text-yellow-500">
-                        (Fallback Auth)
-                      </span>
-                    )}
-                  </div>
+              <div className="border-t border-gray-200 mt-4 pt-4">
+                <div className="block py-2 text-base font-medium text-gray-500">
+                  {userDisplayName}
+                  {fallbackUser && (
+                    <span className="ml-2 text-xs text-yellow-500">
+                      (Fallback Auth)
+                    </span>
+                  )}
                 </div>
-                <Link to="/profile" className="block px-3 py-2 text-gray-700 hover:text-indigo-600 transition-colors">
-                  Profile
+                <Link 
+                  to="/profile" 
+                  className="block py-2.5 text-base font-medium text-gray-700 hover:text-indigo-600 transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <User className="inline-block mr-2 h-4 w-4" /> Profile
                 </Link>
-                <AuthButton style="mobile" />
+                <div onClick={() => setIsOpen(false)}>
+                  <AuthButton style="mobile" />
+                </div>
               </div>
             ) : (
-              <AuthButton style="mobile" />
+              <div onClick={() => setIsOpen(false)}>
+                <AuthButton style="mobile" />
+              </div>
             )}
           </div>
         </div>
