@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
           rewrite: (path: string) => path.replace(/^\/api/, ""),
           filter: (path: string) => {
             // Don't proxy auth-related requests, let those go directly to Supabase
-            return !path.startsWith('/auth/');
+            return !path.startsWith("/auth/");
           },
         },
       },
@@ -40,13 +40,9 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks: {
             pdfjs: ["pdfjs-dist"],
-            worker: ["src/workers/pdf.worker.js"],
           },
         },
       },
-    },
-    worker: {
-      format: "es",
     },
   };
 });
