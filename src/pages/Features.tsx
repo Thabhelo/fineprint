@@ -1,13 +1,25 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Shield, AlertTriangle, RefreshCw, Upload, Bell, Lock, Smartphone, CreditCard } from 'lucide-react';
+import { Shield, AlertTriangle, RefreshCw, Upload, Bell, Lock, Smartphone, CreditCard, Globe, Highlighter } from 'lucide-react';
 
 const features = [
   {
-    name: 'AI-Powered Analysis',
-    description: 'Advanced NLP algorithms analyze contracts to identify risky clauses and potential issues.',
+    name: 'One-Click AI Analysis',
+    description: 'Advanced NLP algorithms analyze contracts directly from your browser extension with a single click.',
     icon: Shield,
     color: 'from-indigo-500 to-purple-500',
+  },
+  {
+    name: 'Website Certificate Legitimacy',
+    description: "FinePrint verifies that a website's certificate is valid and the domain is secure before you interact with its contracts.",
+    icon: Globe,
+    color: 'from-blue-500 to-indigo-600',
+  },
+  {
+    name: 'Color-Coded Highlights',
+    description: 'Our software automatically highlights crucial contract details—using color-coding—to draw attention to any concealed or critical information.',
+    icon: Highlighter,
+    color: 'from-amber-500 to-orange-500',
   },
   {
     name: 'Risk Detection',
@@ -96,7 +108,7 @@ export default function Features() {
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">{feature.name}</h3>
                 <p className="text-gray-600">{feature.description}</p>
               </div>
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${feature.color}" />
+              <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${feature.color}`} />
             </motion.div>
           ))}
         </div>
