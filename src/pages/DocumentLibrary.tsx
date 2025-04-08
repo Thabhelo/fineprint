@@ -11,12 +11,16 @@ import {
   AlertTriangle,
   CheckCircle,
   Folder,
+  FileSpreadsheet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
 import { format } from "date-fns";
 import { DocumentUploader } from "../components/DocumentUploader";
-import type { ProcessedDocument } from "../services/documentProcessor";
+import {
+  DocumentProcessor,
+  ProcessedDocument,
+} from "../services/documentProcessor";
 
 interface Document {
   id: string;
@@ -71,7 +75,7 @@ export default function DocumentLibrary() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      
+
       // Handle unauthenticated users gracefully instead of throwing an error
       if (!user) {
         console.log("No authenticated user found - showing sample data");
@@ -120,8 +124,9 @@ export default function DocumentLibrary() {
       );
       setStats({
         totalDocuments: formattedDocs.length,
-        highRiskCount: formattedDocs.filter((doc) => doc.riskLevel === ("high" as const))
-          .length,
+        highRiskCount: formattedDocs.filter(
+          (doc) => doc.riskLevel === ("high" as const)
+        ).length,
         categoryCount: uniqueCategories.size,
         analyzedCount: formattedDocs.filter((doc) => doc.status === "complete")
           .length,
@@ -142,6 +147,31 @@ export default function DocumentLibrary() {
   const handleDocumentProcessed = async (processedDoc: ProcessedDocument) => {
     // Refresh the document list
     await loadDocuments();
+  };
+
+  const handleExportContractTerms = async () => {
+    try {
+      const documentProcessor = DocumentProcessor.getInstance();
+      const csvContent = await documentProcessor.generateContractTermsCSV();
+
+      // Create a blob and download the CSV file
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `contract_terms_${format(new Date(), "yyyy-MM-dd")}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success("Contract terms exported as CSV");
+    } catch (error) {
+      console.error("Error exporting contract terms:", error);
+      toast.error("Failed to export contract terms");
+    }
   };
 
   const categories = ["all", ...new Set(documents.map((doc) => doc.category))];
@@ -167,9 +197,23 @@ export default function DocumentLibrary() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
+          className="flex items-center justify-between"
         >
-          <h1 className="text-3xl font-bold text-gray-900">Document Library</h1>
-          <p className="mt-2 text-gray-600">Upload and manage your documents</p>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Document Library
+            </h1>
+            <p className="mt-2 text-gray-600">
+              Upload and manage your documents
+            </p>
+          </div>
+          <button
+            onClick={handleExportContractTerms}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Export Contract Terms
+          </button>
         </motion.div>
 
         {/* Quick Stats */}
@@ -311,6 +355,14 @@ export default function DocumentLibrary() {
                     {tag}
                   </span>
                 ))}
+
+                {/* Show a special tag if contract terms are extracted */}
+                {doc.metadata?.extractedTerms && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <FileSpreadsheet className="h-3 w-3 mr-1" />
+                    Contract Terms
+                  </span>
+                )}
               </div>
 
               {doc.metadata && (
@@ -331,6 +383,16 @@ export default function DocumentLibrary() {
                   Modified: {format(new Date(doc.lastModified), "PPP")}
                 </span>
                 <div className="flex space-x-2">
+                  {doc.metadata?.extractedTerms && (
+                    <a
+                      href={`/contract-terms/${doc.id}`}
+                      className="p-2 text-gray-600 hover:text-green-600 transition-colors"
+                      title="View contract terms"
+                      aria-label="View contract terms"
+                    >
+                      <FileSpreadsheet className="h-5 w-5" />
+                    </a>
+                  )}
                   <button
                     className="p-2 text-gray-600 hover:text-indigo-600 transition-colors"
                     title="Download document"
