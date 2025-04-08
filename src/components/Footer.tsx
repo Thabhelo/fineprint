@@ -61,14 +61,12 @@ export default function Footer() {
                 <Link to="/pricing" className="text-gray-300 hover:text-indigo-400 transition-colors">Pricing</Link>
               </li>
               <li>
-                <a 
-                  href="https://chrome.google.com/webstore/category/extensions" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                <Link 
+                  to="/extension"
                   className="text-gray-300 hover:text-indigo-400 transition-colors"
                 >
                   Chrome Extension
-                </a>
+                </Link>
               </li>
               <li>
                 <a 
