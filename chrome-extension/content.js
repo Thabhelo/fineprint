@@ -152,21 +152,111 @@ function createFloatingActionButton(styledComponents) {
 // Function to analyze the current page
 async function analyzePage() {
   try {
+    console.log('Starting page analysis');
     const text = extractContractText();
-    const response = await fetch('http://127.0.0.1:8000/api/analyze', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ text })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Backend API response not OK: ${response.status}`);
+    
+    if (!text || text.trim().length < 10) {
+      console.error('Extracted text is too short or empty');
+      alert('Could not find enough text to analyze on this page.');
+      return;
     }
+    
+    console.log(`Extracted ${text.length} characters of text`);
+    
+    // Show a loading indicator
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 8px;
+      padding: 12px 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      z-index: 99999;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    `;
+    loadingIndicator.innerHTML = `
+      <div style="width: 20px; height: 20px; border: 2px solid #4f46e5; border-radius: 50%; border-top-color: transparent; animation: fineprint-spin 1s linear infinite;"></div>
+      <span>Analyzing contract...</span>
+    `;
+    document.body.appendChild(loadingIndicator);
+    
+    // Add animation keyframes
+    const animationStyle = document.createElement('style');
+    animationStyle.textContent = `
+      @keyframes fineprint-spin {
+        to { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(animationStyle);
+    
+    try {
+      console.log('Sending request to API...');
+      const response = await fetch('http://127.0.0.1:8000/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+        mode: 'cors',
+        credentials: 'omit'
+      });
 
-    const analysis = await response.json();
-    showAnalysisResults(analysis);
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
+      }
+
+      const analysis = await response.json();
+      console.log('Analysis received:', analysis);
+      
+      // Remove loading indicator
+      document.body.removeChild(loadingIndicator);
+      
+      // Show analysis results
+      showAnalysisResults(analysis);
+    } catch (error) {
+      console.error('Error calling API:', error);
+      
+      // Remove loading indicator
+      document.body.removeChild(loadingIndicator);
+      
+      // Show error message
+      const errorMessage = document.createElement('div');
+      errorMessage.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        z-index: 99999;
+        font-family: system-ui, -apple-system, sans-serif;
+        max-width: 300px;
+      `;
+      errorMessage.innerHTML = `
+        <h3 style="margin: 0 0 8px 0; color: #ef4444;">Analysis Failed</h3>
+        <p style="margin: 0 0 12px 0;">Could not connect to the Fineprint API. Try again or check your connection.</p>
+        <button style="background: #4f46e5; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">Dismiss</button>
+      `;
+      document.body.appendChild(errorMessage);
+      
+      // Close error message when button is clicked
+      errorMessage.querySelector('button').addEventListener('click', () => {
+        document.body.removeChild(errorMessage);
+      });
+      
+      // Auto-dismiss after 10 seconds
+      setTimeout(() => {
+        if (document.body.contains(errorMessage)) {
+          document.body.removeChild(errorMessage);
+        }
+      }, 10000);
+    }
   } catch (error) {
     console.error('Error analyzing page:', error);
   }
@@ -174,24 +264,71 @@ async function analyzePage() {
 
 // Function to extract contract text
 function extractContractText() {
-  const mainContent = document.querySelector('main, article, .content, #content, .main-content, #main-content');
-  if (!mainContent) return document.body.innerText;
+  // Priority selectors for common content areas
+  const selectors = [
+    'main', 'article', '.content', '#content', '.main-content', '#main-content',
+    '.terms', '#terms', '.agreement', '#agreement', '.contract', '#contract',
+    '.privacy-policy', '#privacy-policy', '.legal', '#legal'
+  ];
   
-  const textNodes = [];
-  const walk = document.createTreeWalker(
-    mainContent,
-    NodeFilter.SHOW_TEXT,
-    null,
-    false
-  );
-  
-  let node;
-  while (node = walk.nextNode()) {
-    if (node.textContent.trim()) {
-      textNodes.push(node.textContent.trim());
+  // Try each selector in order until we find content
+  let mainContent = null;
+  for (const selector of selectors) {
+    const element = document.querySelector(selector);
+    if (element && element.innerText.trim().length > 200) {
+      console.log(`Found content with selector: ${selector}`);
+      mainContent = element;
+      break;
     }
   }
   
+  // If no specific content area found, use body
+  if (!mainContent) {
+    console.log('No specific content area found, using body');
+    mainContent = document.body;
+  }
+  
+  const textNodes = [];
+  
+  // Function to recursively get text from elements, filtering out irrelevant elements
+  function getTextFromElement(element) {
+    // Skip hidden elements, navigation, footer, etc.
+    if (!element || !element.tagName) return;
+    
+    const tag = element.tagName.toLowerCase();
+    const className = (element.className || '').toLowerCase();
+    const id = (element.id || '').toLowerCase();
+    
+    // Skip irrelevant elements
+    if (
+      tag === 'script' || tag === 'style' || tag === 'noscript' || 
+      tag === 'nav' || tag === 'footer' || tag === 'header' ||
+      className.includes('nav') || className.includes('menu') || 
+      className.includes('footer') || className.includes('header') ||
+      id.includes('nav') || id.includes('menu') || 
+      id.includes('footer') || id.includes('header')
+    ) {
+      return;
+    }
+    
+    // If it's a text node with content, add it
+    if (element.nodeType === Node.TEXT_NODE) {
+      const text = element.textContent.trim();
+      if (text) {
+        textNodes.push(text);
+      }
+      return;
+    }
+    
+    // Process child nodes
+    for (const child of element.childNodes) {
+      getTextFromElement(child);
+    }
+  }
+  
+  getTextFromElement(mainContent);
+  
+  // Join the text nodes, maintaining paragraph structure
   return textNodes.join('\n');
 }
 
@@ -521,6 +658,85 @@ function highlightRedFlags(redFlags) {
     const parent = el.parentNode;
     parent.replaceChild(document.createTextNode(el.textContent), el);
   });
+  
+  // No flags to highlight
+  if (!redFlags || redFlags.length === 0) {
+    console.log('No red flags to highlight');
+    return;
+  }
+
+  // Create shadow root for tooltip if it doesn't exist
+  if (!document.getElementById('fineprint-tooltip-container')) {
+    const tooltipContainer = document.createElement('div');
+    tooltipContainer.id = 'fineprint-tooltip-container';
+    document.body.appendChild(tooltipContainer);
+    
+    // Add tooltip styles
+    const tooltipStyle = document.createElement('style');
+    tooltipStyle.textContent = `
+      .fineprint-tooltip {
+        position: fixed;
+        z-index: 999999;
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        max-width: 300px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 14px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .fineprint-tooltip.visible {
+        opacity: 1;
+      }
+      .fineprint-tooltip-title {
+        font-weight: 600;
+        margin: 0 0 8px 0;
+      }
+      .fineprint-tooltip-description {
+        margin: 0 0 8px 0;
+        color: #555;
+      }
+      .fineprint-tooltip-severity {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .fineprint-tooltip-severity.high {
+        background-color: rgba(239, 68, 68, 0.2);
+        color: #b91c1c;
+      }
+      .fineprint-tooltip-severity.medium {
+        background-color: rgba(245, 158, 11, 0.2);
+        color: #b45309;
+      }
+      .fineprint-tooltip-severity.low {
+        background-color: rgba(34, 197, 94, 0.2);
+        color: #15803d;
+      }
+    `;
+    document.head.appendChild(tooltipStyle);
+    
+    // Create tooltip element
+    const tooltip = document.createElement('div');
+    tooltip.className = 'fineprint-tooltip';
+    tooltip.innerHTML = `
+      <div class="fineprint-tooltip-title"></div>
+      <div class="fineprint-tooltip-description"></div>
+      <span class="fineprint-tooltip-severity"></span>
+    `;
+    tooltipContainer.appendChild(tooltip);
+  }
+  
+  // Get tooltip elements
+  const tooltip = document.querySelector('.fineprint-tooltip');
+  const tooltipTitle = tooltip.querySelector('.fineprint-tooltip-title');
+  const tooltipDescription = tooltip.querySelector('.fineprint-tooltip-description');
+  const tooltipSeverity = tooltip.querySelector('.fineprint-tooltip-severity');
 
   // Process each flag
   redFlags.forEach(flag => {
@@ -528,87 +744,101 @@ function highlightRedFlags(redFlags) {
       // Skip empty text
       if (!flag.text) return;
       
-      // Clean up the text for matching (remove ellipses and trim)
-      let cleanText = flag.text.replace(/^\.\.\./, '').replace(/\.\.\.$/, '').trim();
+      // Clean up the text for matching
+      let flagText = flag.text.replace(/^\.\.\./, '').replace(/\.\.\.$/, '').trim();
       
-      // For very short texts, try to find more precise matches
-      if (cleanText.length < 20) {
-        cleanText = cleanText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      } else {
-        // For longer texts, use a substring approach for better matching
-        // Take a reasonable chunk from the middle to avoid ellipses issues
-        const words = cleanText.split(/\s+/);
-        if (words.length > 5) {
-          cleanText = words.slice(1, Math.min(8, words.length - 1)).join(' ');
+      // For short text snippets, we need to be careful with regex special characters
+      flagText = flagText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      
+      // For very long text, use a more focused approach
+      if (flagText.length > 100) {
+        const words = flagText.split(/\s+/);
+        if (words.length > 10) {
+          // Use the middle portion of the text to avoid issues with ellipses
+          flagText = words.slice(5, 15).join(' ');
+          flagText = flagText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
         }
-        cleanText = cleanText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       }
       
-      // Use a text walker to find matches in visible text
-      const walker = document.createTreeWalker(
+      // Skip if no usable text
+      if (flagText.length < 5) {
+        console.log('Flag text too short to highlight:', flag.text);
+        return;
+      }
+      
+      console.log('Looking for text to highlight:', flagText);
+      
+      // Use XPath to find text nodes containing the flag text
+      const xpathResult = document.evaluate(
+        `//*[contains(text(), '${flagText}')]`,
         document.body,
-        NodeFilter.SHOW_TEXT,
-        {
-          acceptNode: (node) => {
-            // Skip if already highlighted or hidden
-            if (node.parentElement && (
-                node.parentElement.classList.contains('fineprint-highlight') ||
-                node.parentElement.closest('.fineprint-highlight')
-            )) {
-              return NodeFilter.FILTER_REJECT;
-            }
-            
-            // Skip if empty or just whitespace
-            if (!node.textContent.trim()) {
-              return NodeFilter.FILTER_REJECT;
-            }
-            
-            // Skip if hidden
-            const style = window.getComputedStyle(node.parentElement);
-            if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-              return NodeFilter.FILTER_REJECT;
-            }
-            
-            return NodeFilter.FILTER_ACCEPT;
-          }
-        },
-        false
+        null,
+        XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+        null
       );
       
-      let node;
-      let regex = new RegExp(cleanText, 'i');
+      // Track if highlight was applied
+      let highlightApplied = false;
       
-      while (node = walker.nextNode()) {
-        if (node.textContent && regex.test(node.textContent)) {
-          // Create a highlight span
-          const span = document.createElement('span');
-          span.className = `fineprint-highlight fineprint-${flag.severity}`;
-          span.textContent = node.textContent;
-          span.title = `${flag.category}: ${flag.description}`;
-          span.dataset.flagId = flag.category.toLowerCase().replace(/\s+/g, '-');
+      // Process found nodes
+      for (let i = 0; i < xpathResult.snapshotLength; i++) {
+        const element = xpathResult.snapshotItem(i);
+        
+        // Skip already highlighted elements
+        if (element.classList && element.classList.contains('fineprint-highlight')) {
+          continue;
+        }
+        
+        // Skip navigation, headers, etc.
+        const tag = element.tagName?.toLowerCase();
+        const className = (element.className || '').toLowerCase();
+        if (
+          tag === 'nav' || tag === 'header' || tag === 'footer' ||
+          className.includes('nav') || className.includes('header') || className.includes('footer')
+        ) {
+          continue;
+        }
+        
+        // Create a wrapper span for the highlight
+        const highlightSpan = document.createElement('span');
+        highlightSpan.className = `fineprint-highlight fineprint-${flag.severity}`;
+        highlightSpan.dataset.category = flag.category;
+        highlightSpan.dataset.severity = flag.severity;
+        highlightSpan.dataset.description = flag.description;
+        highlightSpan.innerHTML = element.innerHTML;
+        
+        // Replace the element with our highlight
+        if (element.parentNode) {
+          element.parentNode.replaceChild(highlightSpan, element);
+          highlightApplied = true;
           
-          // Replace the text node with our highlight span
-          node.parentNode.replaceChild(span, node);
-          
-          // Add click handler to flash and show details
-          span.addEventListener('click', () => {
-            span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Add event listeners for tooltip
+          highlightSpan.addEventListener('mouseenter', (e) => {
+            tooltipTitle.textContent = flag.category;
+            tooltipDescription.textContent = flag.description;
+            tooltipSeverity.textContent = flag.severity.charAt(0).toUpperCase() + flag.severity.slice(1) + ' Risk';
+            tooltipSeverity.className = `fineprint-tooltip-severity ${flag.severity}`;
             
-            // Flash effect
-            const originalBackground = span.style.backgroundColor;
-            span.style.backgroundColor = span.classList.contains('fineprint-high') 
-              ? 'rgba(239, 68, 68, 0.4)' 
-              : span.classList.contains('fineprint-medium')
-                ? 'rgba(245, 158, 11, 0.4)'
-                : 'rgba(34, 197, 94, 0.4)';
+            // Position the tooltip
+            const rect = highlightSpan.getBoundingClientRect();
+            tooltip.style.left = `${rect.left}px`;
+            tooltip.style.top = `${rect.bottom + 10}px`;
             
-            setTimeout(() => {
-              span.style.backgroundColor = originalBackground;
-            }, 600);
+            // Show the tooltip
+            tooltip.classList.add('visible');
           });
           
-          break; // Only highlight one instance per flag
+          highlightSpan.addEventListener('mouseleave', () => {
+            tooltip.classList.remove('visible');
+          });
+          
+          // Only highlight one occurrence per flag
+          break;
         }
+      }
+      
+      if (!highlightApplied) {
+        console.log('Could not find text to highlight for:', flag.category);
       }
     } catch (error) {
       console.error('Error highlighting flag:', error, flag);

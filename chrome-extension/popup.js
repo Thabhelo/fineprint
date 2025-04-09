@@ -18,6 +18,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Set API endpoint
   const API_ENDPOINT = 'http://127.0.0.1:8000';
+  
+  // Function to check if the API is available
+  async function checkApiAvailability() {
+    try {
+      const response = await fetch(`${API_ENDPOINT}/health`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'cors',
+      });
+      
+      if (response.ok) {
+        console.log('API health check successful');
+        updateModelStatus('ready');
+        return true;
+      } else {
+        console.warn('API health check failed');
+        updateModelStatus('error');
+        return false;
+      }
+    } catch (error) {
+      console.error('API health check error:', error);
+      updateModelStatus('error');
+      return false;
+    }
+  }
+  
+  // Check API availability when popup opens
+  checkApiAvailability();
 
   // Set default website URL and try to detect environment
   let websiteUrl = 'https://fineprint.it.com';
@@ -87,10 +115,13 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ text: result.result })
+            body: JSON.stringify({ text: result.result }),
+            mode: 'cors',
+            credentials: 'omit'
           });
 
           if (!response.ok) {
+            console.error(`API request failed with status ${response.status}: ${response.statusText}`);
             throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
           }
 
@@ -146,8 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
         riskLevel.textContent = 'Analyzing...';
         progressIndicator.style.width = '50%';
         redFlagsList.innerHTML = '<p class="empty-state">Analyzing contract...</p>';
-        positivePoints.innerHTML = '<p class="empty-state">Analyzing contract...</p>';
-        neutralPoints.innerHTML = '<p class="empty-state">Analyzing contract...</p>';
         wordCount.textContent = '0';
         redFlagCount.textContent = '0';
         modelConfidence.textContent = '-';
@@ -161,26 +190,31 @@ document.addEventListener('DOMContentLoaded', () => {
           redFlagCount.textContent = data.red_flags.length;
           
           // Calculate average model confidence
-          const avgConfidence = data.red_flags.reduce((acc, flag) => acc + flag.confidence, 0) / data.red_flags.length;
-          modelConfidence.textContent = `${(avgConfidence * 100).toFixed(1)}%`;
+          const avgConfidence = data.red_flags.length > 0 
+            ? data.red_flags.reduce((acc, flag) => acc + flag.confidence, 0) / data.red_flags.length 
+            : 0;
+          modelConfidence.textContent = data.red_flags.length > 0 
+            ? `${(avgConfidence * 100).toFixed(1)}%` 
+            : 'N/A';
           
           // Update red flags list
-          redFlagsList.innerHTML = data.red_flags.map(flag => `
-            <div class="red-flag ${flag.severity}">
-              <div class="flag-header">
-                <span class="flag-category">${flag.category}</span>
-                <span class="flag-severity">${flag.severity}</span>
+          if (data.red_flags.length > 0) {
+            redFlagsList.innerHTML = data.red_flags.map(flag => `
+              <div class="red-flag ${flag.severity}">
+                <div class="flag-header">
+                  <span class="flag-category">${flag.category}</span>
+                  <span class="flag-severity">${flag.severity}</span>
+                </div>
+                <p class="flag-text">${flag.text}</p>
+                <div class="flag-details">
+                  <p class="flag-description">${flag.description}</p>
+                  <p class="flag-recommendation">${flag.recommendation}</p>
+                </div>
               </div>
-              <p class="flag-text">${flag.text}</p>
-              <div class="flag-details">
-                <p class="flag-description">${flag.description}</p>
-                <p class="flag-recommendation">${flag.recommendation}</p>
-              </div>
-            </div>
-          `).join('');
-
-          // Update key points
-          updateKeyPoints(data);
+            `).join('');
+          } else {
+            redFlagsList.innerHTML = '<p class="empty-state">No red flags detected</p>';
+          }
           
           // Enable buttons
           highlightButton.disabled = false;
