@@ -7,13 +7,15 @@ const openai = new OpenAI({
 });
 
 export interface ExtractedTerm {
-  type: "date" | "amount" | "term" | "clause";
   value: string;
+  type: "amount" | "date" | "section" | "reference" | "percentage" | "other";
   confidence: number;
-  startIndex: number;
-  endIndex: number;
+  page: number;
+  position: {
+    x: number;
+    y: number;
+  };
   context?: string;
-  riskFactors?: string[];
 }
 
 export interface DocumentAnalysis {
@@ -68,47 +70,8 @@ export async function analyzeDocument(
     throw new Error("Document content is required for analysis");
   }
 
-  const terms: ExtractedTerm[] = [];
-  const content = document.content.toLowerCase();
-
-  // Extract dates
-  const dateMatches = content.match(patterns.date) || [];
-  dateMatches.forEach((match: string) => {
-    terms.push({
-      type: "date",
-      value: match,
-      confidence: 0.95,
-      startIndex: content.indexOf(match),
-      endIndex: content.indexOf(match) + match.length,
-    });
-  });
-
-  // Extract amounts
-  const amountMatches = content.match(patterns.amount) || [];
-  amountMatches.forEach((match: string) => {
-    terms.push({
-      type: "amount",
-      value: match,
-      confidence: 0.92,
-      startIndex: content.indexOf(match),
-      endIndex: content.indexOf(match) + match.length,
-    });
-  });
-
-  // Extract legal terms
-  legalTerms.forEach((term) => {
-    const index = content.indexOf(term);
-    if (index !== -1) {
-      terms.push({
-        type: "term",
-        value: term,
-        confidence: 0.88,
-        startIndex: index,
-        endIndex: index + term.length,
-        riskFactors: riskFactors[term],
-      });
-    }
-  });
+  // Extract terms using the new extractTerms function
+  const terms = extractTerms(document.content, document.metadata);
 
   // Use LLM to analyze clauses and context
   const clauses = await analyzeClausesWithLLM(document.content);
@@ -284,4 +247,153 @@ function generateSummary(
   } high-risk, ${clauseCounts.medium} medium-risk, and ${
     clauseCounts.low
   } low-risk clauses. Overall risk level: ${getRiskLevel(riskScore)}.`;
+}
+
+function extractTerms(
+  content: string,
+  metadata: Document["metadata"]
+): ExtractedTerm[] {
+  const terms: ExtractedTerm[] = [];
+  const seenTerms = new Set<string>();
+
+  // Split content into pages if available
+  const pages = metadata?.pageCount ? content.split("\f") : [content];
+
+  pages.forEach((pageContent, pageIndex) => {
+    // If there are any amounts, extract them
+    const amountPattern = /[$€£¥]?\s*\d{1,3}(?:,\d{3})*(?:\.\d{2})?/g;
+    const amounts = pageContent.match(amountPattern) || [];
+
+    amounts.forEach((match) => {
+      const cleanValue = match.replace(/[$,€£¥\s]/g, "");
+      if (!seenTerms.has(cleanValue)) {
+        seenTerms.add(cleanValue);
+        terms.push({
+          value: cleanValue,
+          type: "amount",
+          confidence: 92.0,
+          page: pageIndex + 1,
+          position: { x: 0, y: 0 },
+          context: extractContext(pageContent, match),
+        });
+      }
+    });
+
+    // If there are any dates, extract them
+    const datePatterns = [
+      /\d{1,2}\/\d{1,2}\/\d{2,4}/g, // MM/DD/YYYY
+      /\d{4}-\d{2}-\d{2}/g, // YYYY-MM-DD
+      /\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}/gi, // 1 Jan 2024
+    ];
+
+    datePatterns.forEach((pattern) => {
+      const dates = pageContent.match(pattern) || [];
+      dates.forEach((match) => {
+        if (!seenTerms.has(match)) {
+          seenTerms.add(match);
+          terms.push({
+            value: match,
+            type: "date",
+            confidence: 92.0,
+            page: pageIndex + 1,
+            position: { x: 0, y: 0 },
+            context: extractContext(pageContent, match),
+          });
+        }
+      });
+    });
+
+    // If there are any section numbers, extract them
+    const sectionPattern = /(?:Section|Article|Clause)\s+[\d\.]+/gi;
+    const sections = pageContent.match(sectionPattern) || [];
+    sections.forEach((match) => {
+      const number = match.match(/\d+/)?.[0];
+      if (number && !seenTerms.has(number)) {
+        seenTerms.add(number);
+        terms.push({
+          value: number,
+          type: "section",
+          confidence: 92.0,
+          page: pageIndex + 1,
+          position: { x: 0, y: 0 },
+          context: extractContext(pageContent, match),
+        });
+      }
+    });
+
+    // If there are any percentages, extract them
+    const percentagePattern = /\d+(?:\.\d+)?%/g;
+    const percentages = pageContent.match(percentagePattern) || [];
+    percentages.forEach((match) => {
+      const value = match.replace("%", "");
+      if (!seenTerms.has(value)) {
+        seenTerms.add(value);
+        terms.push({
+          value: value,
+          type: "percentage",
+          confidence: 92.0,
+          page: pageIndex + 1,
+          position: { x: 0, y: 0 },
+          context: extractContext(pageContent, match),
+        });
+      }
+    });
+
+    // If there are any reference numbers, extract them (e.g., "Ref: 12345")
+    const referencePattern = /(?:Ref|Reference|No\.?)\s*[:#]?\s*\d+/gi;
+    const references = pageContent.match(referencePattern) || [];
+    references.forEach((match) => {
+      const number = match.match(/\d+/)?.[0];
+      if (number && !seenTerms.has(number)) {
+        seenTerms.add(number);
+        terms.push({
+          value: number,
+          type: "reference",
+          confidence: 92.0,
+          page: pageIndex + 1,
+          position: { x: 0, y: 0 },
+          context: extractContext(pageContent, match),
+        });
+      }
+    });
+
+    // Extract any remaining numbers as 'other'
+    const numberPattern = /\b\d+\b/g;
+    const numbers = pageContent.match(numberPattern) || [];
+    numbers.forEach((match) => {
+      if (!seenTerms.has(match)) {
+        seenTerms.add(match);
+        terms.push({
+          value: match,
+          type: "other",
+          confidence: 92.0,
+          page: pageIndex + 1,
+          position: { x: 0, y: 0 },
+          context: extractContext(pageContent, match),
+        });
+      }
+    });
+  });
+
+  return terms;
+}
+
+function extractContext(pageContent: string, term: string): string {
+  const index = pageContent.indexOf(term);
+  if (index === -1) return "";
+
+  // Get 50 characters before and after the term
+  const start = Math.max(0, index - 50);
+  const end = Math.min(pageContent.length, index + term.length + 50);
+
+  let context = pageContent.substring(start, end);
+
+  // Clean up the context
+  context = context.replace(/\s+/g, " ").trim();
+
+  // ellipsis if we truncated the text
+  if (start > 0) context = "..." + context;
+  if (end < pageContent.length) context = context + "...";
+
+  return context;
 }
