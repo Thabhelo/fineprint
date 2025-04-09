@@ -16,6 +16,7 @@ interface AuthContextType {
   isSupabaseConfigured: boolean;
 }
 
+// Create the context outside of any component
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Define a complete temp user structure that matches Supabase User
@@ -60,43 +61,7 @@ const createTempUser = (email: string, userData: Record<string, any> = {}): User
   } as unknown as User;
 };
 
-// Helper function to handle fallback authentication
-const handleFallbackAuth = (email: string, userData: Record<string, any> = {}) => {
-  // Create a properly typed temporary user
-  const tempUser = createTempUser(email, userData);
-  
-  // Override ID if present in userData
-  if (userData && typeof userData === 'object' && 'id' in userData) {
-    tempUser.id = userData.id;
-  }
-  
-  // Store user info for persistence
-  const userToStore = {
-    id: tempUser.id,
-    email,
-    role: userData?.role || 'user',
-    ...(userData || {})
-  };
-  
-  // Store in localStorage for persistent fallback auth
-  localStorage.setItem('fallback_auth_user', JSON.stringify(userToStore));
-  
-  // Set state in a safe way
-  Promise.resolve().then(() => {
-    setUser(tempUser);
-    setRole(userData?.role || 'user');
-  });
-  
-  return {
-    tempUser,
-    data: {
-      user: tempUser,
-      session: { access_token: 'temp-token' }
-    },
-    error: null
-  };
-};
-
+// AuthProvider component that provides the auth context
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
@@ -105,27 +70,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Use the shared check from supabase.ts
   const supabaseConfigured = isSupabaseConfigured;
 
-  // Check for fallback auth on initial render
-  useEffect(() => {
-    // Check if we have a fallback user in localStorage
+  // Read fallback auth user from localStorage
+  const getFallbackUser = () => {
     try {
       const fallbackUser = localStorage.getItem('fallback_auth_user');
       if (fallbackUser) {
         const parsedUser = JSON.parse(fallbackUser);
         console.log('🔍 Found fallback user in localStorage:', parsedUser.email);
-        
-        // Create a proper user object from the stored data
-        const tempUser = createTempUser(parsedUser.email, parsedUser);
-        if (parsedUser.id) {
-          tempUser.id = parsedUser.id;
-        }
-        
-        // Set the user and role from localStorage
-        setUser(tempUser);
-        setRole(parsedUser.role || 'user');
+        return parsedUser;
       }
     } catch (error) {
       console.error('❌ Error loading fallback user from localStorage:', error);
+    }
+    return null;
+  };
+
+  // Helper function to handle fallback authentication
+  const handleFallbackAuth = (email: string, userData: Record<string, any> = {}) => {
+    // Create a properly typed temporary user
+    const tempUser = createTempUser(email, userData);
+    
+    // Override ID if present in userData
+    if (userData && typeof userData === 'object' && 'id' in userData) {
+      tempUser.id = userData.id;
+    }
+    
+    // Store user info for persistence
+    const userToStore = {
+      id: tempUser.id,
+      email,
+      role: userData?.role || 'user',
+      ...(userData || {})
+    };
+    
+    // Store in localStorage for persistent fallback auth
+    localStorage.setItem('fallback_auth_user', JSON.stringify(userToStore));
+    
+    // Set state in a safe way using setTimeout to avoid React warnings
+    setTimeout(() => {
+      setUser(tempUser);
+      setRole(userData?.role || 'user');
+    }, 0);
+    
+    return {
+      tempUser,
+      data: {
+        user: tempUser,
+        session: { access_token: 'temp-token' }
+      },
+      error: null
+    };
+  };
+
+  // Check for fallback auth on initial render
+  useEffect(() => {
+    const fallbackUser = getFallbackUser();
+    if (fallbackUser) {
+      // Create a proper user object from the stored data
+      const tempUser = createTempUser(fallbackUser.email, fallbackUser);
+      if (fallbackUser.id) {
+        tempUser.id = fallbackUser.id;
+      }
+      
+      // Set the user and role from localStorage
+      setUser(tempUser);
+      setRole(fallbackUser.role || 'user');
+      setLoading(false);
     }
   }, []);
 
@@ -137,6 +147,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabaseConfigured) {
       console.log('⚠️ Skipping auth initialization - Supabase not configured');
       setLoading(false);
+      
+      // Check if we already have a fallback user
+      if (!user) {
+        const fallbackUser = getFallbackUser();
+        if (fallbackUser) {
+          // We'll use the fallback user
+          const tempUser = createTempUser(fallbackUser.email, fallbackUser);
+          setUser(tempUser);
+          setRole(fallbackUser.role || 'user');
+        }
+      }
       return;
     }
     
@@ -144,24 +165,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log('🔍 Retrieving session...');
         const { data: { session }, error } = await supabase.auth.getSession();
+        
         if (error) {
           console.error("❌ Failed to retrieve session:", error);
-          toast.error("Failed to retrieve session.");
+          
+          // Instead of showing an error, check for fallback user
+          const fallbackUser = getFallbackUser();
+          if (fallbackUser) {
+            console.log('✅ Using fallback user instead of showing session error');
+            const tempUser = createTempUser(fallbackUser.email, fallbackUser);
+            setUser(tempUser);
+            setRole(fallbackUser.role || 'user');
+          } else {
+            // No fallback user available
+            setUser(null);
+            setRole(null);
+          }
+          
           setLoading(false);
           return;
         }
         
         console.log('Session result:', session ? 'Session found' : 'No session');
-        setUser(session?.user ?? null);
+        
         if (session?.user) {
           console.log('User found in session, fetching role...');
+          setUser(session.user);
           fetchUserRole(session.user.id);
         } else {
           console.log('No user in session');
+          
+          // Check if we have a fallback user we can use
+          const fallbackUser = getFallbackUser();
+          if (fallbackUser) {
+            console.log('✅ Using fallback user since no session found');
+            const tempUser = createTempUser(fallbackUser.email, fallbackUser);
+            setUser(tempUser);
+            setRole(fallbackUser.role || 'user');
+          } else {
+            setUser(null);
+            setRole(null);
+          }
         }
+        
         setLoading(false);
       } catch (err) {
         console.error("❌ Unexpected error getting session:", err);
+        
+        // Try to use fallback authentication
+        const fallbackUser = getFallbackUser();
+        if (fallbackUser) {
+          console.log('✅ Using fallback user due to session error');
+          const tempUser = createTempUser(fallbackUser.email, fallbackUser);
+          setUser(tempUser);
+          setRole(fallbackUser.role || 'user');
+        }
+        
         setLoading(false);
       }
     };
@@ -171,10 +230,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       console.log('🔔 Auth state changed, event:', _event);
-      setUser(session?.user ?? null);
+      
       if (session?.user) {
+        setUser(session.user);
         fetchUserRole(session.user.id);
+      } else if (_event === 'SIGNED_OUT') {
+        // Clear fallback user on explicit sign out
+        localStorage.removeItem('fallback_auth_user');
+        setUser(null);
+        setRole(null);
       }
+      
       setLoading(false);
     });
 
@@ -183,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         authListener.subscription.unsubscribe();
       }
     };
-  }, [supabaseConfigured]);
+  }, [supabaseConfigured, user]);
 
   const fetchUserRole = async (userId: string) => {
     if (!supabaseConfigured) return;
@@ -516,10 +582,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
+// Export as a named constant rather than a function declaration
+// This makes it compatible with Fast Refresh
+export const useAuth = (() => {
+  // This function only runs once during initial evaluation
+  // and returns the actual hook function that will be used
+  const useAuthHook = () => {
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+      throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+  };
+  
+  return useAuthHook;
+})(); // IIFE to create a stable reference
