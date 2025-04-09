@@ -29,18 +29,23 @@ export default defineConfig(({ mode }) => {
       },
       fs: {
         // Explicitly restrict access outside of the project root
-        strict: true,
+        strict: false,
         // Add specific patterns to deny to prevent path traversal attacks
         deny: [
           // Deny all dot files and directories
           '**/.env*', 
-          '**/node_modules/**', 
+          '**/node_modules/.vite/**', 
           '**/dist/**',
           '**/.git/**',
           '**/.DS_Store'
         ],
-        // Only allow import/raw of files from safe directories
-        allow: ['./src/**', './public/**', './node_modules/**']
+        // Allow import/raw of files from safe directories
+        allow: [
+          './**', // Allow all files in the project
+          path.resolve(__dirname, "./src/**"),
+          path.resolve(__dirname, "./public/**"),
+          path.resolve(__dirname, "./node_modules/**")
+        ]
       },
     },
     define: {
@@ -52,6 +57,7 @@ export default defineConfig(({ mode }) => {
     envPrefix: ["VITE_"],
     build: {
       rollupOptions: {
+        external: ['openai'],
         output: {
           manualChunks: {
             pdfjs: ["pdfjs-dist"],

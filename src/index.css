@@ -1,20 +1,32 @@
+/* Import responsive utilities */
+@import "./utils/responsive.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Import responsive utilities */
-@import './utils/responsive.css';
-
 @keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
 }
 
 @keyframes gradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .gradient-bg {
@@ -47,7 +59,7 @@
   .hover-scale:hover {
     transform: none; /* Disable hover scaling on touch devices */
   }
-  
+
   .float-animation {
     animation-duration: 4s; /* Faster animation on mobile */
   }

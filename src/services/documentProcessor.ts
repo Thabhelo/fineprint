@@ -142,9 +142,24 @@ export class DocumentProcessor {
         data: { user },
       } = await supabase.auth.getUser();
       
-      // Skip storage if user is not authenticated, but don't throw an error
+      // If user is not authenticated, store in session storage instead
       if (!user) {
-        console.log("User not authenticated - skipping document storage");
+        console.log("User not authenticated - storing document in session storage");
+        
+        // Get existing documents from session storage or initialize empty array
+        const existingDocs = JSON.parse(sessionStorage.getItem('temporaryDocuments') || '[]');
+        
+        // Add new document
+        existingDocs.push({
+          id: `temp-${Date.now()}`,
+          file_name: fileName,
+          content: text,
+          metadata: metadata,
+          created_at: new Date().toISOString(),
+        });
+        
+        // Save back to session storage
+        sessionStorage.setItem('temporaryDocuments', JSON.stringify(existingDocs));
         return;
       }
 
