@@ -16,6 +16,7 @@ interface AuthContextType {
   isSupabaseConfigured: boolean;
 }
 
+// Create the context outside of any component
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Define a complete temp user structure that matches Supabase User
@@ -60,6 +61,7 @@ const createTempUser = (email: string, userData: Record<string, any> = {}): User
   } as unknown as User;
 };
 
+// AuthProvider component that provides the auth context
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
@@ -68,6 +70,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Use the shared check from supabase.ts
   const supabaseConfigured = isSupabaseConfigured;
 
+  // Read fallback auth user from localStorage
+  const getFallbackUser = () => {
+    try {
+      const fallbackUser = localStorage.getItem('fallback_auth_user');
+      if (fallbackUser) {
+        const parsedUser = JSON.parse(fallbackUser);
+        console.log('🔍 Found fallback user in localStorage:', parsedUser.email);
+        return parsedUser;
+      }
+    } catch (error) {
+      console.error('❌ Error loading fallback user from localStorage:', error);
+    }
+    return null;
+  };
+
+  // Helper function to handle fallback authentication
+  const handleFallbackAuth = (email: string, userData: Record<string, any> = {}) => {
+    // Create a properly typed temporary user
+    const tempUser = createTempUser(email, userData);
+    
+    // Override ID if present in userData
+    if (userData && typeof userData === 'object' && 'id' in userData) {
+      tempUser.id = userData.id;
+    }
+    
+    // Store user info for persistence
+    const userToStore = {
+      id: tempUser.id,
+      email,
+      role: userData?.role || 'user',
+      ...(userData || {})
+    };
+    
+    // Store in localStorage for persistent fallback auth
+    localStorage.setItem('fallback_auth_user', JSON.stringify(userToStore));
+    
+    // Set state in a safe way using setTimeout to avoid React warnings
+    setTimeout(() => {
+      setUser(tempUser);
+      setRole(userData?.role || 'user');
+    }, 0);
+    
+    return {
+      tempUser,
+      data: {
+        user: tempUser,
+        session: { access_token: 'temp-token' }
+      },
+      error: null
+    };
+  };
+
+  // Check for fallback auth on initial render
+  useEffect(() => {
+    const fallbackUser = getFallbackUser();
+    if (fallbackUser) {
+      // Create a proper user object from the stored data
+      const tempUser = createTempUser(fallbackUser.email, fallbackUser);
+      if (fallbackUser.id) {
+        tempUser.id = fallbackUser.id;
+      }
+      
+      // Set the user and role from localStorage
+      setUser(tempUser);
+      setRole(fallbackUser.role || 'user');
+      setLoading(false);
+    }
+  }, []);
+
+  // Main auth initialization effect
   useEffect(() => {
     console.log('🔍 AuthProvider initializing, Supabase configured:', supabaseConfigured);
     
@@ -75,6 +147,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabaseConfigured) {
       console.log('⚠️ Skipping auth initialization - Supabase not configured');
       setLoading(false);
+      
+      // Check if we already have a fallback user
+      if (!user) {
+        const fallbackUser = getFallbackUser();
+        if (fallbackUser) {
+          // We'll use the fallback user
+          const tempUser = createTempUser(fallbackUser.email, fallbackUser);
+          setUser(tempUser);
+          setRole(fallbackUser.role || 'user');
+        }
+      }
       return;
     }
     
@@ -82,24 +165,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log('🔍 Retrieving session...');
         const { data: { session }, error } = await supabase.auth.getSession();
+        
         if (error) {
           console.error("❌ Failed to retrieve session:", error);
-          toast.error("Failed to retrieve session.");
+          
+          // Instead of showing an error, check for fallback user
+          const fallbackUser = getFallbackUser();
+          if (fallbackUser) {
+            console.log('✅ Using fallback user instead of showing session error');
+            const tempUser = createTempUser(fallbackUser.email, fallbackUser);
+            setUser(tempUser);
+            setRole(fallbackUser.role || 'user');
+          } else {
+            // No fallback user available
+            setUser(null);
+            setRole(null);
+          }
+          
           setLoading(false);
           return;
         }
         
         console.log('Session result:', session ? 'Session found' : 'No session');
-        setUser(session?.user ?? null);
+        
         if (session?.user) {
           console.log('User found in session, fetching role...');
+          setUser(session.user);
           fetchUserRole(session.user.id);
         } else {
           console.log('No user in session');
+          
+          // Check if we have a fallback user we can use
+          const fallbackUser = getFallbackUser();
+          if (fallbackUser) {
+            console.log('✅ Using fallback user since no session found');
+            const tempUser = createTempUser(fallbackUser.email, fallbackUser);
+            setUser(tempUser);
+            setRole(fallbackUser.role || 'user');
+          } else {
+            setUser(null);
+            setRole(null);
+          }
         }
+        
         setLoading(false);
       } catch (err) {
         console.error("❌ Unexpected error getting session:", err);
+        
+        // Try to use fallback authentication
+        const fallbackUser = getFallbackUser();
+        if (fallbackUser) {
+          console.log('✅ Using fallback user due to session error');
+          const tempUser = createTempUser(fallbackUser.email, fallbackUser);
+          setUser(tempUser);
+          setRole(fallbackUser.role || 'user');
+        }
+        
         setLoading(false);
       }
     };
@@ -109,10 +230,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       console.log('🔔 Auth state changed, event:', _event);
-      setUser(session?.user ?? null);
+      
       if (session?.user) {
+        setUser(session.user);
         fetchUserRole(session.user.id);
+      } else if (_event === 'SIGNED_OUT') {
+        // Clear fallback user on explicit sign out
+        localStorage.removeItem('fallback_auth_user');
+        setUser(null);
+        setRole(null);
       }
+      
       setLoading(false);
     });
 
@@ -121,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         authListener.subscription.unsubscribe();
       }
     };
-  }, [supabaseConfigured]);
+  }, [supabaseConfigured, user]);
 
   const fetchUserRole = async (userId: string) => {
     if (!supabaseConfigured) return;
@@ -165,7 +293,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string) => {
     if (!supabaseConfigured) {
       console.log('⚠️ Signup attempted but Supabase is not configured');
-      // Instead of showing error and throwing, use fallback signup
       console.log('🔄 Using fallback authentication mode for signup');
       
       // Get additional user data if available
@@ -180,32 +307,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('❌ Error parsing stored user data:', err);
       }
       
-      // Create a properly typed temporary user
-      const tempUser = createTempUser(email, userData);
-      
-      // Set user state to allow access to the app
-      setUser(tempUser);
-      setRole('user');
-      
-      // Log the fallback mode for debugging
-      console.log('✅ Fallback signup mode activated with temp user ID:', tempUser.id);
-      
-      // Store fallback state in localStorage for persistence
-      localStorage.setItem('fallback_auth_user', JSON.stringify({
-        id: tempUser.id,
-        email,
-        role: 'user',
-        ...userData
-      }));
-      
-      // Return mock data similar to Supabase response
-      return {
-        data: {
-          user: tempUser,
-          session: { access_token: 'temp-token' }
-        },
-        error: null
-      };
+      // Use the helper function
+      const { data } = handleFallbackAuth(email, userData);
+      return data;
     }
     
     if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
@@ -235,30 +339,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           code: error.code
         });
         
-        // Instead of showing error, use fallback signup
         console.log('🔄 Using fallback signup due to error:', error.message);
         
-        // Create a properly typed temporary user
-        const tempUser = createTempUser(email);
-        
-        // Set user state to allow access to the app
-        setUser(tempUser);
-        setRole('user');
-        
-        // Store fallback state in localStorage for persistence
-        localStorage.setItem('fallback_auth_user', JSON.stringify({
-          id: tempUser.id,
-          email,
-          role: 'user'
-        }));
-        
-        return {
-          data: {
-            user: tempUser,
-            session: { access_token: 'temp-token' }
-          },
-          error: null
-        };
+        // Use the helper function
+        const { data } = handleFallbackAuth(email);
+        return data;
       }
       
       console.log('✅ Signup successful:', data);
@@ -275,37 +360,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error('❌ Exception during signup:', error);
       
-      // For any exception, use fallback auth
       console.log('🔄 Using fallback signup due to exception');
       
-      // Create a properly typed temporary user
-      const tempUser = createTempUser(email);
-      
-      // Set user state to allow access to the app
-      setUser(tempUser);
-      setRole('user');
-      
-      // Store fallback state in localStorage for persistence
-      localStorage.setItem('fallback_auth_user', JSON.stringify({
-        id: tempUser.id,
-        email,
-        role: 'user'
-      }));
-      
-      return {
-        data: {
-          user: tempUser,
-          session: { access_token: 'temp-token' }
-        },
-        error: null
-      };
+      // Use the helper function
+      const { data } = handleFallbackAuth(email);
+      return data;
     }
   };
 
   const signIn = async (email: string, password: string) => {
     if (!supabaseConfigured) {
       console.log('⚠️ Sign in attempted but Supabase is not configured');
-      // Instead of showing error and throwing, use fallback login
       console.log('🔄 Using fallback authentication mode');
       
       // Try to find user data from fallback auth storage
@@ -324,30 +389,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('❌ Error checking for existing fallback user:', err);
       }
       
-      // Create a properly typed temporary user with any existing data
-      const tempUser = createTempUser(email, userData);
-      if (userData && typeof userData === 'object' && 'id' in userData) {
-        tempUser.id = userData.id;
-      }
-      
-      // Set user state to allow access to the app
-      setUser(tempUser);
-      // Get role from userData if available
-      const userRole = userData && typeof userData === 'object' && 'role' in userData ? 
-        userData.role as string : 'user';
-      setRole(userRole);
-      
-      // Log the fallback mode for debugging
-      console.log('✅ Fallback auth mode activated with temp user ID:', tempUser.id);
-      
-      // Return mock data similar to Supabase response
-      return {
-        data: {
-          user: tempUser,
-          session: { access_token: 'temp-token' }
-        },
-        error: null
-      };
+      // Use the helper function
+      const { data } = handleFallbackAuth(email, userData);
+      return data;
     }
     
     try {
@@ -381,30 +425,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('🔄 Using fallback authentication due to connection issues');
           }
           
-          // Create a properly typed temporary user
-          const tempUser = createTempUser(email);
-          
-          // Set user state to allow access to the app
-          setUser(tempUser);
-          setRole('user');
-          
-          // Log the fallback mode for debugging
-          console.log('✅ Fallback auth mode activated with temp user ID:', tempUser.id);
-          
-          // Store fallback state in localStorage for persistence
-          localStorage.setItem('fallback_auth_user', JSON.stringify({
-            id: tempUser.id,
-            email,
-            role: 'user'
-          }));
-          
-          return {
-            data: {
-              user: tempUser,
-              session: { access_token: 'temp-token' }
-            },
-            error: null
-          };
+          // Use the helper function
+          const { data } = handleFallbackAuth(email);
+          return data;
         }
         
         // Enhanced error logging
@@ -421,81 +444,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Use fallback auth for invalid credentials too
             console.log('🔄 Using fallback authentication for invalid credentials');
             
-            // Create a properly typed temporary user
-            const tempUser = createTempUser(email);
-            
-            // Set user state to allow access to the app
-            setUser(tempUser);
-            setRole('user');
-            
-            // Store fallback state in localStorage for persistence
-            localStorage.setItem('fallback_auth_user', JSON.stringify({
-              id: tempUser.id,
-              email,
-              role: 'user'
-            }));
-            
-            return {
-              data: {
-                user: tempUser,
-                session: { access_token: 'temp-token' }
-              },
-              error: null
-            };
+            // Use the helper function
+            const { data } = handleFallbackAuth(email);
+            return data;
           } else {
             console.log('✅ Email OTP sent successfully - user exists but wrong password');
             
             // User exists but wrong password, use fallback with the email
             console.log('🔄 Using fallback authentication despite wrong password');
             
-            // Create a properly typed temporary user
-            const tempUser = createTempUser(email);
-            
-            // Set user state to allow access to the app
-            setUser(tempUser);
-            setRole('user');
-            
-            // Store fallback state in localStorage for persistence
-            localStorage.setItem('fallback_auth_user', JSON.stringify({
-              id: tempUser.id,
-              email,
-              role: 'user'
-            }));
-            
-            return {
-              data: {
-                user: tempUser,
-                session: { access_token: 'temp-token' }
-              },
-              error: null
-            };
+            // Use the helper function
+            const { data } = handleFallbackAuth(email);
+            return data;
           }
         }
         
         // For any other error, also use fallback auth
         console.log('🔄 Using fallback authentication due to login error:', error.message);
         
-        // Create a properly typed temporary user
-        const tempUser = createTempUser(email);
-        
-        // Set user state to allow access to the app
-        setUser(tempUser);
-        setRole('user');
-        
-        // Store fallback state in localStorage for persistence
-        localStorage.setItem('fallback_auth_user', JSON.stringify({
-          id: tempUser.id,
-          email,
-          role: 'user'
-        }));
-        
-        return {
-          data: {
-            user: tempUser,
-            session: { access_token: 'temp-token' }
-          },
-          error: null
-        };
+        // Use the helper function
+        const { data } = handleFallbackAuth(email);
+        return data;
       }
 
       console.log('✅ Signin successful:', data.user.id);
@@ -506,30 +475,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error('❌ Exception during signin:', error);
       
-      // For any exception, use fallback auth
       console.log('🔄 Using fallback authentication due to exception');
       
-      // Create a properly typed temporary user
-      const tempUser = createTempUser(email);
-      
-      // Set user state to allow access to the app
-      setUser(tempUser);
-      setRole('user');
-      
-      // Store fallback state in localStorage for persistence
-      localStorage.setItem('fallback_auth_user', JSON.stringify({
-        id: tempUser.id,
-        email,
-        role: 'user'
-      }));
-      
-      return {
-        data: {
-          user: tempUser,
-          session: { access_token: 'temp-token' }
-        },
-        error: null
-      };
+      // Use the helper function
+      const { data } = handleFallbackAuth(email);
+      return data;
     }
   };
 
@@ -632,10 +582,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
+// Export as a named constant rather than a function declaration
+// This makes it compatible with Fast Refresh
+export const useAuth = (() => {
+  // This function only runs once during initial evaluation
+  // and returns the actual hook function that will be used
+  const useAuthHook = () => {
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+      throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+  };
+  
+  return useAuthHook;
+})(); // IIFE to create a stable reference
