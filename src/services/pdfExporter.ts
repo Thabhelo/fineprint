@@ -68,15 +68,16 @@ export async function exportAnalysisToPDF(
     y += 10;
     doc.setFontSize(10);
     const preview = document.content.substring(0, 500) + "...";
-    const splitText = doc.splitTextToSize(preview, pageWidth - 2 * margin);
-    splitText.forEach((line) => {
+    const splitText: string[] = doc.splitTextToSize(preview, pageWidth - 2 * margin);
+    for (let i = 0; i < splitText.length; i++) {
+      const line: string = splitText[i];
       if (y > doc.internal.pageSize.getHeight() - margin) {
         doc.addPage();
         y = margin;
       }
       doc.text(line, margin, y);
       y += 7;
-    });
+    }
   }
 
   // Add metadata
@@ -107,18 +108,19 @@ export async function exportAnalysisToPDF(
   doc.text("Summary", margin, y);
   y += 10;
   doc.setFontSize(12);
-  const summaryLines = doc.splitTextToSize(
+  const summaryLines: string[] = doc.splitTextToSize(
     analysis.summary,
     pageWidth - 2 * margin
   );
-  summaryLines.forEach((line) => {
+  for (let i = 0; i < summaryLines.length; i++) {
+    const line: string = summaryLines[i];
     if (y > doc.internal.pageSize.getHeight() - margin) {
       doc.addPage();
       y = margin;
     }
     doc.text(line, margin, y);
     y += 7;
-  });
+  }
 
   // Add footer
   const pageCount = doc.getNumberOfPages();
