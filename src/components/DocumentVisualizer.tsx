@@ -16,11 +16,16 @@ interface DocumentVisualizerProps {
   onClose: () => void;
 }
 
-const termColors = {
+// Ensure this object has all possible types from ExtractedTerm
+const termColors: Record<string, string> = {
   date: "bg-blue-100 text-blue-800",
   amount: "bg-green-100 text-green-800",
   term: "bg-purple-100 text-purple-800",
   clause: "bg-yellow-100 text-yellow-800",
+  section: "bg-gray-100 text-gray-800",
+  reference: "bg-orange-100 text-orange-800",
+  percentage: "bg-teal-100 text-teal-800",
+  other: "bg-pink-100 text-pink-800",
 };
 
 const riskLevelColors = {
@@ -63,16 +68,16 @@ export function DocumentVisualizer({
       setExporting(true);
       const pdfBlob = await exportAnalysisToPDF(document, analysis);
 
-      // Create a download link
+      // Use window.document to avoid confusion with our Document type
       const url = URL.createObjectURL(pdfBlob);
-      const a = document.createElement("a");
+      const a = window.document.createElement("a");
       a.href = url;
       a.download = `${document.title
         .replace(/[^a-z0-9]/gi, "_")
         .toLowerCase()}_analysis.pdf`;
-      document.body.appendChild(a);
+      window.document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      window.document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Failed to export PDF:", err);
@@ -240,7 +245,7 @@ export function DocumentVisualizer({
                 <div
                   key={index}
                   className={`p-3 rounded-lg ${
-                    termColors[term.type]
+                    termColors[term.type] || "bg-gray-100 text-gray-800"
                   } flex justify-between items-center`}
                 >
                   <div>
@@ -252,7 +257,7 @@ export function DocumentVisualizer({
                       <div className="mt-1">
                         <p className="text-xs font-medium">Risk Factors:</p>
                         <div className="flex flex-wrap gap-1">
-                          {term.riskFactors.map((factor, factorIndex) => (
+                          {term.riskFactors?.map((factor: string, factorIndex: number) => (
                             <span
                               key={factorIndex}
                               className="text-xs bg-white/50 px-1.5 py-0.5 rounded"
