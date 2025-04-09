@@ -100,10 +100,10 @@ export default function DocumentLibrary() {
         setDocuments(formattedDocs);
         
         // Calculate stats for temporary documents
-        const uniqueCategories = new Set(formattedDocs.map((doc) => doc.category));
+        const uniqueCategories = new Set(formattedDocs.map((doc: Document) => doc.category));
         setStats({
           totalDocuments: formattedDocs.length,
-          highRiskCount: formattedDocs.filter((doc) => doc.riskLevel === "high").length,
+          highRiskCount: formattedDocs.filter((doc: Document) => doc.riskLevel === "high").length,
           categoryCount: uniqueCategories.size,
           analyzedCount: formattedDocs.length,
         });
