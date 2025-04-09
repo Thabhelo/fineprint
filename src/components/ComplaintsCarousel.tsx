@@ -32,7 +32,7 @@ const ComplaintsCarousel: React.FC = () => {
     },
     {
       id: 2,
-      username: "Sibusisiwe Ncube",
+      username: "Sibusisiwe Ndlovu",
       handle: "@bucie_n",
       content: "My apartment lease had vague language about 'reasonable wear and tear.' Ended up losing my entire security deposit over normal use.",
       date: "5 days ago",

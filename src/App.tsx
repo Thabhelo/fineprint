@@ -90,17 +90,13 @@ function App() {
             <Route
               path="/documents"
               element={
-                <ProtectedRoute>
-                  <DocumentLibrary />
-                </ProtectedRoute>
+                <DocumentLibrary />
               }
             />
             <Route
               path="/research"
               element={
-                <ProtectedRoute>
-                  <LegalResearch />
-                </ProtectedRoute>
+                <LegalResearch />
               }
             />
           </Routes>

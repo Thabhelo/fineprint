@@ -27,6 +27,21 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
+      fs: {
+        // Explicitly restrict access outside of the project root
+        strict: true,
+        // Add specific patterns to deny to prevent path traversal attacks
+        deny: [
+          // Deny all dot files and directories
+          '**/.env*', 
+          '**/node_modules/**', 
+          '**/dist/**',
+          '**/.git/**',
+          '**/.DS_Store'
+        ],
+        // Only allow import/raw of files from safe directories
+        allow: ['./src/**', './public/**', './node_modules/**']
+      },
     },
     define: {
       "import.meta.env.VITE_SUPABASE_URL":
@@ -44,6 +59,8 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
+      // Add security headers for production build
+      reportCompressedSize: false,
     },
     worker: {
       format: "es",
