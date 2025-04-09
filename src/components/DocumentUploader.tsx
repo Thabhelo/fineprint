@@ -55,8 +55,25 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
   );
 
   const validateFile = (file: File): string | null => {
-    const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
-    if (!acceptedFileTypes.includes(fileExtension)) {
+    // Handle PDF mime types correctly - PDF files can have various mime types
+    const isPdf = file.type.includes('pdf') || 
+                  file.name.toLowerCase().endsWith('.pdf');
+    
+    // Handle Office documents
+    const isDocx = file.type.includes('docx') || 
+                   file.type.includes('doc') || 
+                   file.name.toLowerCase().endsWith('.docx') || 
+                   file.name.toLowerCase().endsWith('.doc');
+    
+    // Handle image types
+    const isImage = file.type.includes('image') || 
+                    acceptedFileTypes.some(ext => 
+                      file.name.toLowerCase().endsWith(ext) && 
+                      (ext.includes('png') || ext.includes('jpg') || ext.includes('jpeg'))
+                    );
+    
+    if (!isPdf && !isDocx && !isImage) {
+      const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
       return `File type ${fileExtension} is not supported`;
     }
 
@@ -67,33 +84,72 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
     return null;
   };
 
+  // Helper function to format file size in human-readable format
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   const processFiles = async (files: File[]) => {
-    const documentProcessor = DocumentProcessor.getInstance();
     setIsProcessing(true);
     setProgress(0);
-
+    
     try {
-      for (const file of files) {
-        const error = validateFile(file);
-        if (error) {
-          toast.error(error);
-          continue;
-        }
+      // Validate files using our improved validation function
+      const invalidFiles = files.filter(file => validateFile(file) !== null);
 
-        try {
-          const processedDoc = await documentProcessor.processDocument(file);
-          toast.success(`Successfully processed ${file.name}`);
-          onDocumentProcessed?.(processedDoc);
-        } catch (error) {
-          console.error(`Error processing ${file.name}:`, error);
-          toast.error(`Failed to process ${file.name}`);
-        }
-
-        setProgress((prev) => prev + 100 / files.length);
+      if (invalidFiles.length > 0) {
+        const fileNames = invalidFiles.map(f => f.name).join(", ");
+        toast.error(
+          `Invalid file(s): ${fileNames}. Please check file types and sizes.`
+        );
+        setIsProcessing(false);
+        return;
       }
+
+      // Create Document Processor to handle the document
+      const processor = new DocumentProcessor();
+      
+      // Add progress handler
+      processor.onProgress = (progress) => {
+        setProgress(progress);
+        console.log(`Document processing progress: ${progress}%`);
+      };
+
+      console.log(`Starting to process ${files.length} files`);
+      
+      // Process each file
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        console.log(`Processing file: ${file.name} (${formatFileSize(file.size)})`);
+        
+        try {
+          const processedDocument = await processor.processDocument(file);
+          
+          if (processedDocument) {
+            console.log("Document processed successfully:", processedDocument.metadata.title);
+            toast.success(`Document "${processedDocument.metadata.title}" processed successfully`);
+            
+            if (onDocumentProcessed) {
+              onDocumentProcessed(processedDocument);
+            }
+          } else {
+            console.error("Document processing returned undefined result");
+            toast.error("Failed to process the document. Please try a different file format.");
+          }
+        } catch (fileError) {
+          console.error(`Error processing file ${file.name}:`, fileError);
+          toast.error(`Error processing "${file.name}". ${fileError.message || "Please try a different file."}`);
+        }
+      }
+    } catch (error) {
+      console.error("Error in processFiles:", error);
+      toast.error(`An unexpected error occurred: ${error.message || "Please try again."}`);
     } finally {
       setIsProcessing(false);
-      setProgress(0);
     }
   };
 
