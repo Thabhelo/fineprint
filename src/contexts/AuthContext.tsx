@@ -54,10 +54,10 @@ const createTempUser = (email: string, userData: Record<string, any> = {}): User
     confirmed_at: timestamp,
     last_sign_in_at: timestamp,
     email_confirmed_at: timestamp,
-    recovery_sent_at: null,
+    recovery_sent_at: undefined,
     identities: [],
     factors: [],
-  } as User;
+  } as unknown as User;
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -238,15 +238,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Instead of showing error, use fallback signup
         console.log('🔄 Using fallback signup due to error:', error.message);
         
-        // Create temporary user data
-        const tempUser = {
-          id: 'temp-' + Date.now(),
-          email,
-          user_metadata: { role: 'user' }
-        };
+        // Create a properly typed temporary user
+        const tempUser = createTempUser(email);
         
         // Set user state to allow access to the app
-        setUser(tempUser as User);
+        setUser(tempUser);
         setRole('user');
         
         // Store fallback state in localStorage for persistence
@@ -282,15 +278,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // For any exception, use fallback auth
       console.log('🔄 Using fallback signup due to exception');
       
-      // Create temporary user data
-      const tempUser = {
-        id: 'temp-' + Date.now(),
-        email,
-        user_metadata: { role: 'user' }
-      };
+      // Create a properly typed temporary user
+      const tempUser = createTempUser(email);
       
       // Set user state to allow access to the app
-      setUser(tempUser as User);
+      setUser(tempUser);
       setRole('user');
       
       // Store fallback state in localStorage for persistence
@@ -317,7 +309,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('🔄 Using fallback authentication mode');
       
       // Try to find user data from fallback auth storage
-      let userData = {};
+      let userData: Record<string, any> = {};
       try {
         const existingUser = localStorage.getItem('fallback_auth_user');
         if (existingUser) {
