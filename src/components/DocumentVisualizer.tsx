@@ -246,7 +246,7 @@ export function DocumentVisualizer({
                   <div>
                     <p className="font-medium">{term.value}</p>
                     <p className="text-sm opacity-75">
-                      Confidence: {(term.confidence * 100).toFixed(1)}%
+                      Confidence: {term.confidence.toFixed(1)}%
                     </p>
                     {term.riskFactors && term.riskFactors.length > 0 && (
                       <div className="mt-1">
