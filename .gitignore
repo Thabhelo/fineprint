@@ -61,3 +61,21 @@ tmp
 *.sw?
 .vercel
 .vscode
+
+# Python virtual environment
+.venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Chrome extension build artifacts
+chrome-extension.crx
+chrome-extension.pem
+
+# ML models and data
+**/ml/models/contract_analyzer/
+**/ml/data/
+**/ml/config/__pycache__/
+**/ml/utils/
