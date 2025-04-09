@@ -18,6 +18,48 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Define a complete temp user structure that matches Supabase User
+type TempUser = {
+  id: string;
+  email: string;
+  app_metadata: Record<string, any>;
+  user_metadata: Record<string, any>;
+  aud: string;
+  created_at: string;
+  // Add other required User properties with default values
+  updated_at?: string;
+  confirmed_at?: string;
+  email_confirmed_at?: string;
+  phone?: string;
+  phone_confirmed_at?: string;
+  last_sign_in_at?: string;
+  role?: string;
+};
+
+// Function to create a temporary user that satisfies the User type requirements
+const createTempUser = (email: string, userData: Record<string, any> = {}): User => {
+  const timestamp = new Date().toISOString();
+  return {
+    id: 'temp-' + Date.now(),
+    email,
+    app_metadata: { provider: 'fallback' },
+    user_metadata: { 
+      role: 'user',
+      ...userData 
+    },
+    aud: 'fallback',
+    created_at: timestamp,
+    updated_at: timestamp,
+    confirmation_sent_at: timestamp,
+    confirmed_at: timestamp,
+    last_sign_in_at: timestamp,
+    email_confirmed_at: timestamp,
+    recovery_sent_at: null,
+    identities: [],
+    factors: [],
+  } as User;
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
@@ -138,18 +180,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('❌ Error parsing stored user data:', err);
       }
       
-      // Create temporary user data for fallback mode
-      const tempUser = {
-        id: 'temp-' + Date.now(),
-        email,
-        user_metadata: { 
-          role: 'user',
-          ...userData 
-        }
-      };
+      // Create a properly typed temporary user
+      const tempUser = createTempUser(email, userData);
       
       // Set user state to allow access to the app
-      setUser(tempUser as User);
+      setUser(tempUser);
       setRole('user');
       
       // Log the fallback mode for debugging
@@ -297,19 +332,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('❌ Error checking for existing fallback user:', err);
       }
       
-      // Create temporary user data for fallback mode
-      const tempUser = {
-        id: userData.id || 'temp-' + Date.now(),
-        email,
-        user_metadata: { 
-          role: userData.role || 'user',
-          ...(userData || {})
-        }
-      };
+      // Create a properly typed temporary user with any existing data
+      const tempUser = createTempUser(email, userData);
+      if (userData && typeof userData === 'object' && 'id' in userData) {
+        tempUser.id = userData.id;
+      }
       
       // Set user state to allow access to the app
-      setUser(tempUser as User);
-      setRole(userData.role || 'user');
+      setUser(tempUser);
+      // Get role from userData if available
+      const userRole = userData && typeof userData === 'object' && 'role' in userData ? 
+        userData.role as string : 'user';
+      setRole(userRole);
       
       // Log the fallback mode for debugging
       console.log('✅ Fallback auth mode activated with temp user ID:', tempUser.id);
@@ -355,15 +389,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('🔄 Using fallback authentication due to connection issues');
           }
           
-          // Create temporary user data for fallback mode
-          const tempUser = {
-            id: 'temp-' + Date.now(),
-            email,
-            user_metadata: { role: 'user' }
-          };
+          // Create a properly typed temporary user
+          const tempUser = createTempUser(email);
           
           // Set user state to allow access to the app
-          setUser(tempUser as User);
+          setUser(tempUser);
           setRole('user');
           
           // Log the fallback mode for debugging
@@ -399,15 +429,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Use fallback auth for invalid credentials too
             console.log('🔄 Using fallback authentication for invalid credentials');
             
-            // Create temporary user data
-            const tempUser = {
-              id: 'temp-' + Date.now(),
-              email,
-              user_metadata: { role: 'user' }
-            };
+            // Create a properly typed temporary user
+            const tempUser = createTempUser(email);
             
             // Set user state to allow access to the app
-            setUser(tempUser as User);
+            setUser(tempUser);
             setRole('user');
             
             // Store fallback state in localStorage for persistence
@@ -430,15 +456,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // User exists but wrong password, use fallback with the email
             console.log('🔄 Using fallback authentication despite wrong password');
             
-            // Create temporary user data
-            const tempUser = {
-              id: 'temp-' + Date.now(),
-              email,
-              user_metadata: { role: 'user' }
-            };
+            // Create a properly typed temporary user
+            const tempUser = createTempUser(email);
             
             // Set user state to allow access to the app
-            setUser(tempUser as User);
+            setUser(tempUser);
             setRole('user');
             
             // Store fallback state in localStorage for persistence
@@ -461,15 +483,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // For any other error, also use fallback auth
         console.log('🔄 Using fallback authentication due to login error:', error.message);
         
-        // Create temporary user data
-        const tempUser = {
-          id: 'temp-' + Date.now(),
-          email,
-          user_metadata: { role: 'user' }
-        };
+        // Create a properly typed temporary user
+        const tempUser = createTempUser(email);
         
         // Set user state to allow access to the app
-        setUser(tempUser as User);
+        setUser(tempUser);
         setRole('user');
         
         // Store fallback state in localStorage for persistence
@@ -499,15 +517,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // For any exception, use fallback auth
       console.log('🔄 Using fallback authentication due to exception');
       
-      // Create temporary user data
-      const tempUser = {
-        id: 'temp-' + Date.now(),
-        email,
-        user_metadata: { role: 'user' }
-      };
+      // Create a properly typed temporary user
+      const tempUser = createTempUser(email);
       
       // Set user state to allow access to the app
-      setUser(tempUser as User);
+      setUser(tempUser);
       setRole('user');
       
       // Store fallback state in localStorage for persistence
