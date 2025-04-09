@@ -11,14 +11,16 @@ import {
   AlertTriangle,
   CheckCircle,
   Folder,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
 import { format } from "date-fns";
 import { DocumentUploader } from "../components/DocumentUploader";
+import { DocumentVisualizer } from "../components/DocumentVisualizer";
 import type { ProcessedDocument } from "../services/documentProcessor";
 
-interface Document {
+export interface Document {
   id: string;
   title: string;
   category: string;
@@ -53,6 +55,9 @@ export default function DocumentLibrary() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(
+    null
+  );
   const [stats, setStats] = useState<DocumentStats>({
     totalDocuments: 0,
     highRiskCount: 0,
@@ -71,7 +76,7 @@ export default function DocumentLibrary() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      
+
       // Handle unauthenticated users gracefully instead of throwing an error
       if (!user) {
         console.log("No authenticated user found - showing sample data");
@@ -120,8 +125,9 @@ export default function DocumentLibrary() {
       );
       setStats({
         totalDocuments: formattedDocs.length,
-        highRiskCount: formattedDocs.filter((doc) => doc.riskLevel === ("high" as const))
-          .length,
+        highRiskCount: formattedDocs.filter(
+          (doc) => doc.riskLevel === ("high" as const)
+        ).length,
         categoryCount: uniqueCategories.size,
         analyzedCount: formattedDocs.filter((doc) => doc.status === "complete")
           .length,
@@ -293,13 +299,22 @@ export default function DocumentLibrary() {
                     <p className="text-sm text-gray-500">{doc.category}</p>
                   </div>
                 </div>
-                {doc.status === "analyzing" ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-indigo-600" />
-                ) : doc.status === "complete" ? (
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                ) : doc.status === "error" ? (
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
-                ) : null}
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setSelectedDocument(doc)}
+                    className="p-2 text-gray-600 hover:text-indigo-600 transition-colors"
+                    title="View document analysis"
+                  >
+                    <Eye className="h-5 w-5" />
+                  </button>
+                  {doc.status === "analyzing" ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-indigo-600" />
+                  ) : doc.status === "complete" ? (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  ) : doc.status === "error" ? (
+                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                  ) : null}
+                </div>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -350,6 +365,13 @@ export default function DocumentLibrary() {
             </motion.div>
           ))}
         </div>
+
+        {selectedDocument && (
+          <DocumentVisualizer
+            document={selectedDocument}
+            onClose={() => setSelectedDocument(null)}
+          />
+        )}
       </div>
     </div>
   );
