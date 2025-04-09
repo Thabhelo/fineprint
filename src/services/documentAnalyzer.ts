@@ -1,6 +1,5 @@
 import type { Document } from "../pages/DocumentLibrary";
-// Mock OpenAI for build process
-// import { OpenAI } from "openai";
+// Import OpenAI dynamically to handle browser environments
 
 // Mock implementation to avoid build issues
 class MockOpenAI {
@@ -28,13 +27,26 @@ class MockOpenAI {
   }
 }
 
-// Replace actual OpenAI with mock for build process
-const openai = process.env.NODE_ENV === 'production' 
-  ? new MockOpenAI() 
-  : new (require('openai').OpenAI)({
-      apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-      dangerouslyAllowBrowser: true,
+// Create a client that will be initialized properly
+let openaiClient: any = new MockOpenAI();
+
+// Try to load the actual OpenAI client if we're in a browser with the API key
+if (typeof window !== 'undefined' && import.meta.env.VITE_OPENAI_API_KEY) {
+  try {
+    // Dynamically import OpenAI (this works in Vite)
+    import('openai').then(({ OpenAI }) => {
+      openaiClient = new OpenAI({
+        apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+        dangerouslyAllowBrowser: true,
+      });
+      console.log("OpenAI client initialized successfully");
+    }).catch(err => {
+      console.warn("Failed to load OpenAI module, using fallback analysis", err);
     });
+  } catch (e) {
+    console.warn("Error initializing OpenAI client, using fallback analysis", e);
+  }
+}
 
 export interface ExtractedTerm {
   value: string;
@@ -121,7 +133,7 @@ export async function analyzeDocument(
 
 async function analyzeClausesWithLLM(documentContent: string) {
   try {
-    const response = await openai.chat.completions.create({
+    const response = await openaiClient.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
         {
