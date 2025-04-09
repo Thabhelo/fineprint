@@ -150,7 +150,7 @@ export class DocumentProcessor {
         });
         
         // Add better error handling for loading failures
-        loadingTask.onPassword = (updateCallback, reason) => {
+        loadingTask.onPassword = (updateCallback: (new_password: string) => void, reason: number) => {
           console.error("Password protected PDF detected:", reason);
           throw new Error("Password protected PDFs are not supported");
         };
@@ -246,10 +246,14 @@ export class DocumentProcessor {
           
           // Process with OCR
           const ocrResult = await this.processImage(file, canvas.toDataURL('image/png'));
-          return ocrResult;
+          // Add pageCount for type compatibility
+          return {
+            text: ocrResult.text,
+            pageCount: 1 // Assume at least one page when using OCR fallback
+          };
         } catch (ocrError) {
           console.error("OCR fallback failed:", ocrError);
-          throw new Error(`Failed to process PDF: ${pdfError.message}`);
+          throw new Error(`Failed to process PDF: ${pdfError instanceof Error ? pdfError.message : String(pdfError)}`);
         }
       }
     } catch (error) {
@@ -343,5 +347,20 @@ export class DocumentProcessor {
       await this.tesseractWorker.terminate();
       this.tesseractWorker = null;
     }
+  }
+
+  // Add the performOCR method that was referenced but missing
+  private async performOCR(imageElement: HTMLImageElement): Promise<{ text: string; confidence: number }> {
+    await this.initTesseract();
+    if (!this.tesseractWorker) {
+      throw new Error("Tesseract worker not initialized");
+    }
+    
+    const result = await this.tesseractWorker.recognize(imageElement.src);
+    
+    return {
+      text: result.data.text,
+      confidence: result.data.confidence
+    };
   }
 }

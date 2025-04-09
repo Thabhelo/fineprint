@@ -140,14 +140,16 @@ export const DocumentUploader: React.FC<DocumentUploaderProps> = ({
             console.error("Document processing returned undefined result");
             toast.error("Failed to process the document. Please try a different file format.");
           }
-        } catch (fileError) {
+        } catch (fileError: unknown) {
           console.error(`Error processing file ${file.name}:`, fileError);
-          toast.error(`Error processing "${file.name}". ${fileError.message || "Please try a different file."}`);
+          const errorMessage = fileError instanceof Error ? fileError.message : "Please try a different file.";
+          toast.error(`Error processing "${file.name}". ${errorMessage}`);
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error in processFiles:", error);
-      toast.error(`An unexpected error occurred: ${error.message || "Please try again."}`);
+      const errorMessage = error instanceof Error ? error.message : "Please try again.";
+      toast.error(`An unexpected error occurred: ${errorMessage}`);
     } finally {
       setIsProcessing(false);
     }
