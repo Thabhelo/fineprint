@@ -16,6 +16,7 @@ export interface ExtractedTerm {
     y: number;
   };
   context?: string;
+  riskFactors?: string[];
 }
 
 export interface DocumentAnalysis {

@@ -77,17 +77,37 @@ export default function DocumentLibrary() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      // Handle unauthenticated users gracefully instead of throwing an error
+      // Handle unauthenticated users by loading from session storage
       if (!user) {
-        console.log("No authenticated user found - showing sample data");
-        // Set empty documents for unauthenticated users
-        setDocuments([]);
+        console.log("No authenticated user found - loading documents from session storage");
+        
+        // Get documents from session storage
+        const tempDocuments = JSON.parse(sessionStorage.getItem('temporaryDocuments') || '[]');
+        
+        // Format the documents to match our Document type
+        const formattedDocs = tempDocuments.map((doc: any) => ({
+          id: doc.id,
+          title: doc.file_name,
+          category: doc.metadata.type,
+          tags: [doc.metadata.type],
+          lastModified: doc.created_at,
+          status: "complete" as const,
+          riskLevel: "low" as "low" | "medium" | "high",
+          content: doc.content,
+          metadata: doc.metadata,
+        }));
+        
+        setDocuments(formattedDocs);
+        
+        // Calculate stats for temporary documents
+        const uniqueCategories = new Set(formattedDocs.map((doc) => doc.category));
         setStats({
-          totalDocuments: 0,
-          highRiskCount: 0,
-          categoryCount: 0,
-          analyzedCount: 0,
+          totalDocuments: formattedDocs.length,
+          highRiskCount: formattedDocs.filter((doc) => doc.riskLevel === "high").length,
+          categoryCount: uniqueCategories.size,
+          analyzedCount: formattedDocs.length,
         });
+        
         setLoading(false);
         return;
       }
