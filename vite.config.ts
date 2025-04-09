@@ -57,6 +57,7 @@ export default defineConfig(({ mode }) => {
     envPrefix: ["VITE_"],
     build: {
       rollupOptions: {
+        external: ['openai'],
         output: {
           manualChunks: {
             pdfjs: ["pdfjs-dist"],
