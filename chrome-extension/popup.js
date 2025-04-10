@@ -198,205 +198,186 @@ document.addEventListener('DOMContentLoaded', () => {
       // Check if there are actual red flags to highlight
       if (currentAnalysis.red_flags && currentAnalysis.red_flags.length > 0) {
         // Highlight actual red flags
-        console.log('Highlighting actual red flags...');
         await chrome.scripting.executeScript({
           target: { tabId: tab.id },
-          function: highlightRedFlagsInPage, // Use the existing function
+          function: highlightRedFlags,
           args: [currentAnalysis.red_flags]
         });
       } else {
-        // No red flags - inject demo highlighting function
-        console.log('No red flags found. Performing demo highlighting...');
+        // If no red flags, do a demo highlight
         await chrome.scripting.executeScript({
           target: { tabId: tab.id },
-          function: highlightDemoFlagsInPage, // Use the new demo function
-          args: [] // No arguments needed for demo
+          function: highlightDemoFlagsInPage
         });
       }
     } catch (error) {
-      console.error('Highlighting error:', error);
+      console.error('Highlight error:', error);
     }
   });
 
-  // Function to be injected for ACTUAL red flag highlighting
-  function highlightRedFlagsInPage(redFlags) {
-    // This is a serialization issue - we need to make sure the content script can handle our data
-    console.log('Requesting highlight of actual red flags in content script', redFlags);
-    
-    // Check if our injected function exists in the content script
-    if (typeof window.highlightRedFlags === 'function') {
-      // Call the content script's function
-      window.highlightRedFlags(redFlags);
-    } else {
-      console.error('window.highlightRedFlags function not found in content script');
-      // Fallback logic removed as content.js should always handle it now
-    }
-  }
-
-  // Function to be injected for DEMO highlighting (when no red flags are found)
+  // Function to highlight demo flags (used when no actual flags found)
   function highlightDemoFlagsInPage() {
-    console.log('Executing demo highlighting in content script...');
-    
-    // Ensure highlight styles are injected (should be done by content.js)
-    if (typeof window.addHighlightStyles === 'function') {
-      window.addHighlightStyles(); 
-    } else {
-      console.warn('addHighlightStyles function not found, demo styles might be missing.')
-    }
-
-    // Function to clear existing highlights
-    const clearHighlights = () => {
-      const existingHighlights = document.querySelectorAll('.fineprint-highlight');
-      existingHighlights.forEach(el => {
-        const parent = el.parentNode;
-        if (parent) {
-          // Replace the highlight span with its text content
-          const textNode = document.createTextNode(el.textContent);
-          parent.replaceChild(textNode, el);
-          parent.normalize(); // Merge adjacent text nodes
-        }
-      });
-      console.log('Cleared existing highlights.');
-    };
-
-    clearHighlights();
-
-    const severities = ['low', 'medium', 'high'];
-    const paragraphs = Array.from(document.querySelectorAll('p'));
-
-    // Filter for visible paragraphs with enough text
-    const eligibleParagraphs = paragraphs.filter(p => {
-      const text = p.textContent.trim();
-      return p.offsetParent !== null && text.length > 50 && !p.closest('script, style, noscript, nav, footer, header');
+    // First clean any existing highlights
+    const existingHighlights = document.querySelectorAll('.fineprint-highlight');
+    existingHighlights.forEach(el => {
+      const parent = el.parentNode;
+      parent.replaceChild(document.createTextNode(el.textContent), el);
     });
-
-    const highlightedElements = new Set(); // Keep track of elements already highlighted
-
-    // 1. Highlight the first few (up to 2) paragraphs in green
-    const numInitialGreen = Math.min(2, eligibleParagraphs.length);
-    console.log(`Highlighting initial ${numInitialGreen} paragraphs in green.`);
-    for (let i = 0; i < numInitialGreen; i++) {
-        const p = eligibleParagraphs[i];
-        if (p && !highlightedElements.has(p)) {
-            try {
-                applyHighlight(p, 'low');
-                highlightedElements.add(p);
-            } catch(e) {
-                console.error('Error applying initial green highlight:', p, e);
-            }
-        }
-    }
-
-    // 2. Select additional random paragraphs (up to 4 more) for varied highlighting
-    const remainingEligible = eligibleParagraphs.filter(p => !highlightedElements.has(p));
-    const countRandom = Math.min(4, remainingEligible.length);
-    const randomIndices = new Set();
-
-    if (remainingEligible.length > 0) {
-        while (randomIndices.size < countRandom) {
-            const randomIndex = Math.floor(Math.random() * remainingEligible.length);
-            randomIndices.add(randomIndex);
-             // Safety break
-            if (randomIndices.size >= remainingEligible.length) break;
-        }
-    }
     
-    console.log(`Highlighting ${randomIndices.size} additional random paragraphs.`);
-
-    let severityIndex = 0; // Start random highlights cycling from low
-    randomIndices.forEach(index => {
-        const p = remainingEligible[index];
-        if (p) { // Check if paragraph exists
-             try {
-                const severity = severities[severityIndex % severities.length];
-                applyHighlight(p, severity);
-                highlightedElements.add(p); // Should already be unique, but good practice
-                severityIndex++;
-            } catch (e) {
-                console.error('Error applying random demo highlight:', p, e);
-            }
+    // Find paragraphs with at least 50 characters
+    const paragraphs = Array.from(document.querySelectorAll('p, div, span, li'))
+      .filter(el => el.textContent.trim().length > 50);
+    
+    // Highlight random elements
+    if (paragraphs.length > 0) {
+      const clearHighlights = () => {
+        const highlights = document.querySelectorAll('.fineprint-highlight');
+        highlights.forEach(el => {
+          const parent = el.parentNode;
+          parent.replaceChild(document.createTextNode(el.textContent), el);
+        });
+      };
+      
+      // Automatically clear after some time
+      setTimeout(clearHighlights, 10000);
+      
+      // Choose 2-3 random paragraphs to highlight
+      const count = Math.min(Math.floor(Math.random() * 2) + 2, paragraphs.length);
+      const selected = [];
+      
+      while (selected.length < count) {
+        const idx = Math.floor(Math.random() * paragraphs.length);
+        if (!selected.includes(idx)) {
+          selected.push(idx);
+          
+          // Get the paragraph
+          const el = paragraphs[idx];
+          
+          // Don't highlight if already highlighted
+          if (el.querySelector('.fineprint-highlight')) continue;
+          
+          // Generate a random severity
+          const severities = ['low', 'medium', 'high'];
+          const severity = severities[Math.floor(Math.random() * severities.length)];
+          
+          // Apply highlight
+          applyHighlight(el, severity);
         }
-    });
+      }
+    }
 
-    console.log('Demo highlighting complete.');
-
-    // Helper function to apply the highlight span
     function applyHighlight(element, severity) {
-        const severityClass = `fineprint-${severity}`;
-        const span = document.createElement('span');
-        span.className = `fineprint-highlight ${severityClass}`;
-        span.title = `Demo Highlight (${severity})`;
-
-        if (element && element.childNodes.length > 0) {
-            // Move children to the span
-            while (element.firstChild) {
-                span.appendChild(element.firstChild);
-            }
-            // Append the span back into the element
-            element.appendChild(span);
-        } else {
-            console.warn('Element node changed or empty, skipping highlight for:', element);
-        }
+      // Create highlight element
+      const span = document.createElement('span');
+      span.className = `fineprint-highlight fineprint-${severity}`;
+      span.textContent = element.textContent;
+      
+      // Set title based on severity
+      if (severity === 'high') {
+        span.title = 'High Risk: This clause contains potentially unfavorable terms.';
+      } else if (severity === 'medium') {
+        span.title = 'Medium Risk: This clause should be reviewed carefully.';
+      } else {
+        span.title = 'Low Risk: This clause may require attention.';
+      }
+      
+      // Replace element content with highlight
+      element.textContent = '';
+      element.appendChild(span);
     }
   }
 
+  // Update UI based on state
   function updateUI(state, data = null) {
-    if (!riskLevel || !riskBadge || !redFlagsList || !redFlagCount || !analyzeButton || !highlightButton) {
-        console.error("One or more UI elements could not be found. Cannot update UI.");
-        return;
-    }
-
+    // Reset red flags list
+    redFlagsList.innerHTML = '';
+    
     switch (state) {
       case 'analyzing':
+        // Update risk level display
         riskLevel.textContent = 'Analyzing...';
-        riskBadge.textContent = '-';
-        redFlagsList.innerHTML = '<div class="empty-message">Analyzing contract...</div>';
+        riskBadge.textContent = '?';
+        riskBadge.className = 'badge';
+        
+        // Show analyzing message in red flags section
+        redFlagsList.innerHTML = '<div class="empty-message">Analyzing contract text...</div>';
         redFlagCount.textContent = '0';
         break;
-
+        
       case 'complete':
-        if (data) {
-          // Update risk level
-          riskLevel.textContent = data.risk_level.charAt(0).toUpperCase() + data.risk_level.slice(1) + ' Risk';
-          riskBadge.textContent = data.red_flags.length;
-          if (riskBadge) {
-            riskBadge.className = `badge badge-${data.risk_level}`;
-          }
-          
-          // Update red flags count
+        if (!data) return;
+        
+        // Update risk level
+        riskLevel.textContent = `${data.risk_level.charAt(0).toUpperCase() + data.risk_level.slice(1)} Risk`;
+        
+        // Update risk badge
+        riskBadge.textContent = data.risk_level.charAt(0).toUpperCase();
+        riskBadge.className = `badge badge-${data.risk_level}`;
+        
+        // Update red flags section
+        if (data.red_flags && data.red_flags.length > 0) {
+          // Update count
           redFlagCount.textContent = data.red_flags.length;
           
-          // Update red flags list
-          if (data.red_flags.length > 0) {
-            redFlagsList.innerHTML = data.red_flags.map(flag => `
-              <div class="flag-item flag-${flag.severity}">
-                <div class="flag-header">
-                  <div class="flag-category">${flag.category}</div>
-                  <div class="flag-severity">${flag.severity}</div>
-                </div>
-                <div class="flag-content">
-                  <div class="flag-text">${flag.text}</div>
-                  <div class="flag-description">${flag.description}</div>
-                </div>
-              </div>
-            `).join('');
-          } else {
-            redFlagsList.innerHTML = '<div class="empty-message">No issues detected. This contract appears to be low risk.</div>';
-          }
+          // Add each red flag
+          data.red_flags.forEach(flag => {
+            const flagItem = document.createElement('div');
+            flagItem.className = `flag-item flag-${flag.severity}`;
+            
+            // Create flag header with title and severity
+            const flagHeader = document.createElement('div');
+            flagHeader.className = 'flag-header';
+            
+            const flagCategory = document.createElement('div');
+            flagCategory.className = 'flag-category';
+            flagCategory.textContent = flag.category;
+            
+            const flagSeverity = document.createElement('div');
+            flagSeverity.className = 'flag-severity';
+            flagSeverity.textContent = flag.severity.charAt(0).toUpperCase() + flag.severity.slice(1);
+            
+            flagHeader.appendChild(flagCategory);
+            flagHeader.appendChild(flagSeverity);
+            
+            // Create content section
+            const flagContent = document.createElement('div');
+            flagContent.className = 'flag-content';
+            
+            // Add text sample
+            const flagText = document.createElement('div');
+            flagText.className = 'flag-text';
+            flagText.textContent = flag.text;
+            
+            // Add description
+            const flagDescription = document.createElement('div');
+            flagDescription.className = 'flag-description';
+            flagDescription.textContent = flag.description;
+            
+            // Assemble the flag item
+            flagContent.appendChild(flagText);
+            flagContent.appendChild(flagDescription);
+            
+            flagItem.appendChild(flagHeader);
+            flagItem.appendChild(flagContent);
+            
+            redFlagsList.appendChild(flagItem);
+          });
           
-          // Enable buttons
-          analyzeButton.disabled = false;
-          highlightButton.disabled = false;
+        } else {
+          // No red flags found
+          redFlagsList.innerHTML = '<div class="empty-message">No significant issues detected.</div>';
+          redFlagCount.textContent = '0';
         }
         break;
-
+        
       case 'error':
-        riskLevel.textContent = 'Error';
+        // Update risk level display
+        riskLevel.textContent = 'Analysis Failed';
         riskBadge.textContent = '!';
-        if (riskBadge) {
-          riskBadge.className = 'badge badge-error';
-        }
-        redFlagsList.innerHTML = '<div class="empty-message error-message">Error analyzing contract. Please try again.</div>';
+        riskBadge.className = 'badge badge-error';
+        
+        // Show error message
+        redFlagsList.innerHTML = '<div class="error-message">Unable to analyze contract. Please try again later.</div>';
         redFlagCount.textContent = '0';
         
         // Re-enable buttons
@@ -540,7 +521,7 @@ function highlightRedFlags(redFlags) {
         const span = document.createElement('span');
         span.className = `fineprint-highlight fineprint-${flag.severity}`;
         span.textContent = node.textContent;
-        span.title = `${flag.title}\n${flag.description}`;
+        span.title = `${flag.category}\n${flag.description}`;
         node.parentNode.replaceChild(span, node);
       }
     }

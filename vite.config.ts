@@ -61,10 +61,11 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks: {
             pdfjs: ["pdfjs-dist"],
-            worker: ["src/workers/pdf.worker.js"],
           },
         },
       },
+      // Ensure pdf.worker.min.mjs is copied to the output directory
+      assetsInclude: ['**/*.mjs'],
       // Add security headers for production build
       reportCompressedSize: false,
     },

@@ -1,2 +1,3 @@
-// This is just a placeholder file for bundling
-// The actual worker is now loaded directly from unpkg CDN
+// This is just a placeholder file
+// The actual worker is loaded from the public directory at runtime
+export {};
